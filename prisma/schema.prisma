@@ -1,0 +1,168 @@
+// Prisma Schema for Player Auction Application
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String       @id @default(uuid())
+  email       String       @unique
+  password    String
+  name        String
+  phone       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  tournaments Tournament[]
+}
+
+model Tournament {
+  id            String         @id @default(uuid())
+  name          String
+  logo          String?
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalPurse    Int            @default(100000)
+  minPlayers    Int            @default(7)
+  maxPlayers    Int            @default(15)
+  baseIncrement Int            @default(100)
+  incrementType String         @default("flat") // flat, slabs
+  incrementSlabs String?       // JSON string of slabs
+  sportType     String         @default("cricket")
+  status        String         @default("draft") // draft, live, completed
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  teams         Team[]
+  players       Player[]
+  categories    Category[]
+  sponsors      Sponsor[]
+  auctionState  AuctionState?
+
+  @@index([userId])
+}
+
+model Team {
+  id           String      @id @default(uuid())
+  name         String
+  shortName    String
+  logo         String?
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  purse        Int         @default(100000)
+  hotkey       String?     // keyboard shortcut key
+  color        String?     // team accent color
+  sortOrder    Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  owners       TeamOwner[]
+  sales        Sale[]
+  bids         Bid[]
+
+  @@index([tournamentId])
+}
+
+model TeamOwner {
+  id     String  @id @default(uuid())
+  teamId String
+  team   Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  name   String
+  photo  String?
+  role   String  @default("Owner") // Owner, Co-Owner, Mentor
+
+  @@index([teamId])
+}
+
+model Category {
+  id           String     @id @default(uuid())
+  name         String
+  basePrice    Int        @default(1000)
+  maxPerTeam   Int?       // Maximum players any team can buy from this category (null or <=0 = unlimited)
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  sortOrder    Int        @default(0)
+  players      Player[]
+
+  @@index([tournamentId])
+}
+
+model Player {
+  id           String     @id @default(uuid())
+  playerNumber Int
+  name         String
+  photo        String?
+  categoryId   String
+  category     Category   @relation(fields: [categoryId], references: [id])
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  battingStyle String?    // Right Hand, Left Hand
+  bowlingStyle String?    // Right Arm Fast, Left Arm Spin, etc.
+  role         String?    // Batsman, Bowler, All-Rounder, Wicket Keeper
+  age          Int?
+  phone        String?
+  status       String     @default("available") // available, sold, unsold
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  bids         Bid[]
+  sale         Sale?
+
+  @@unique([tournamentId, playerNumber])
+  @@index([tournamentId])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model Bid {
+  id        String   @id @default(uuid())
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  amount    Int
+  createdAt DateTime @default(now())
+
+  @@index([playerId])
+  @@index([teamId])
+}
+
+model Sale {
+  id        String   @id @default(uuid())
+  playerId  String   @unique
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  soldPrice Int
+  createdAt DateTime @default(now())
+
+  @@index([teamId])
+}
+
+model Sponsor {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name         String
+  logo         String
+  url          String?
+  sortOrder    Int        @default(0)
+  weight       Int        @default(100)
+
+  @@index([tournamentId])
+}
+
+model AuctionState {
+  id              String     @id @default(uuid())
+  tournamentId    String     @unique
+  tournament      Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  currentPlayerId String?
+  currentBid      Int        @default(0)
+  currentTeamId   String?
+  activeCategory  String?    // null means "All"
+  mode            String     @default("trial")  // trial, live
+  selectionMode   String     @default("random") // random, manual, sequence
+  isActive        Boolean    @default(false)
+  fireworkAudio   Boolean    @default(true)
+  updatedAt       DateTime   @updatedAt
+}
