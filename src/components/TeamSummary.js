@@ -141,64 +141,155 @@ export default function TeamSummary({ tournament, getTeamStats, onRefresh, tourn
     );
   }
 
+  const handleExportCSV = () => {
+    const playersList = tournament?.players || [];
+    const headers = [
+      'Player Number',
+      'Name',
+      'Category',
+      'Role',
+      'Base Price',
+      'Status',
+      'Team',
+      'Sold Price',
+      'Points/Rating'
+    ];
+    const rows = playersList.map(p => {
+      const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
+      return [
+        p.playerNumber || '',
+        escape(p.name),
+        escape(p.category?.name),
+        escape(p.role),
+        p.category?.basePrice || 0,
+        p.status,
+        escape(p.sale?.team?.name || 'Unsold/Available'),
+        p.sale?.soldPrice || 0,
+        p.points || 0
+      ].join(',');
+    });
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${tournament?.name?.replace(/\s+/g, '_') || 'Auction'}_Report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Team Summary Grid
   return (
-    <div className="team-summary-grid">
-      {teams.map((team) => {
-        const stats = getTeamStats(team);
-        const effectiveHotkey = teamHotkeys?.[team.id] || (team.hotkey && team.hotkey.trim()) || null;
-        return (
-          <div
-            key={team.id}
-            className="team-summary-card"
-            onClick={() => setSelectedTeam(team)}
-          >
-            {team.logo ? (
-              <img src={team.logo} alt={team.name} className="team-summary-card__logo" />
-            ) : (
-              <div className="team-summary-card__logo" style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.8rem', fontWeight: 900, color: 'var(--text-muted)',
-                border: '1px solid var(--border-subtle)',
-              }}>
-                {team.shortName}
-              </div>
-            )}
-
-            <div className="team-summary-card__info">
-              <div className="team-summary-card__name" style={{ display: 'flex', alignItems: 'center' }}>
-                <span>{team.name}</span>
-                {effectiveHotkey && (
-                  <span
-                    className="team-shortcut-badge"
-                    title={`Bidding shortcut key: [${effectiveHotkey.toUpperCase()}]`}
-                  >
-                    ⚡ [{effectiveHotkey.toUpperCase()}]
-                  </span>
-                )}
-              </div>
-              <div className="team-summary-card__stats">
-                <span>
-                  <span className="team-summary-card__stat-label">P. </span>
-                  <span className="team-summary-card__stat-value">{stats.playerCount}</span>
-                </span>
-                <span>
-                  <span className="team-summary-card__stat-label">R. </span>
-                  <span className="team-summary-card__stat-value">{stats.remainingSlots}</span>
-                </span>
-              </div>
-              <div className="team-summary-card__sub-stats">
-                <span>MAX: {stats.maxBid?.toLocaleString('en-IN')}</span>
-                <span>RES: {stats.reservePoints?.toLocaleString('en-IN')}</span>
-              </div>
-            </div>
-
-            <div className="team-summary-card__balance">
-              {stats.balance?.toLocaleString('en-IN')}
-            </div>
+    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '16px 20px' }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 12,
+        marginBottom: 20,
+        background: 'var(--aa-surface-container, rgba(27, 31, 49, 0.8))',
+        backdropFilter: 'blur(16px)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 14,
+        padding: '14px 20px',
+      }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontFamily: 'var(--font-display)', color: 'var(--text-primary)', letterSpacing: '0.04em' }}>
+            FRANCHISE TEAMS & PURSE BREAKDOWN
+          </h2>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
+            Click any team to inspect acquired squad members, quota limits, or remove players
           </div>
-        );
-      })}
+        </div>
+
+        <button
+          onClick={handleExportCSV}
+          style={{
+            background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+            color: '#fff',
+            height: 36,
+            padding: '0 18px',
+            borderRadius: 8,
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            border: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'pointer',
+            boxShadow: '0 2px 10px rgba(2, 132, 199, 0.3)',
+          }}
+          title="Download complete team-wise and player-wise auction report in CSV"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>download</span>
+          <span>DOWNLOAD CSV REPORT</span>
+        </button>
+      </div>
+
+      <div className="team-summary-grid">
+        {teams.map((team) => {
+          const stats = getTeamStats(team);
+          const effectiveHotkey = teamHotkeys?.[team.id] || (team.hotkey && team.hotkey.trim()) || null;
+          return (
+            <div
+              key={team.id}
+              className="team-summary-card"
+              onClick={() => setSelectedTeam(team)}
+              style={{
+                borderRadius: 14,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+              }}
+            >
+              {team.logo ? (
+                <img src={team.logo} alt={team.name} className="team-summary-card__logo" style={{ borderRadius: 10 }} />
+              ) : (
+                <div className="team-summary-card__logo" style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-muted)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 10,
+                }}>
+                  {team.shortName}
+                </div>
+              )}
+
+              <div className="team-summary-card__info">
+                <div className="team-summary-card__name" style={{ display: 'flex', alignItems: 'center' }}>
+                  <span>{team.name}</span>
+                  {effectiveHotkey && (
+                    <span
+                      className="team-shortcut-badge"
+                      title={`Bidding shortcut key: [${effectiveHotkey.toUpperCase()}]`}
+                    >
+                      ⚡ [{effectiveHotkey.toUpperCase()}]
+                    </span>
+                  )}
+                </div>
+                <div className="team-summary-card__stats">
+                  <span>
+                    <span className="team-summary-card__stat-label">Players: </span>
+                    <span className="team-summary-card__stat-value">{stats.playerCount}</span>
+                  </span>
+                  <span>
+                    <span className="team-summary-card__stat-label">Remaining: </span>
+                    <span className="team-summary-card__stat-value">{stats.remainingSlots}</span>
+                  </span>
+                </div>
+                <div className="team-summary-card__sub-stats">
+                  <span>MAX BID: ₹{stats.maxBid?.toLocaleString('en-IN')}</span>
+                  <span>RESERVE: ₹{stats.reservePoints?.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              <div className="team-summary-card__balance" style={{ fontFamily: 'var(--font-mono)' }}>
+                ₹{stats.balance?.toLocaleString('en-IN')}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

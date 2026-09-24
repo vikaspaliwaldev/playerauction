@@ -63,6 +63,38 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
   const teams = tournament?.teams || [];
   const players = tournament?.players || [];
   const sponsors = tournament?.sponsors || [];
+  const isCompleted = tournament?.status === 'completed';
+
+  const checkCompletedLock = () => {
+    if (isCompleted) {
+      alert('This auction is marked as COMPLETED and is locked. Please click "REOPEN FOR ACTION" at the top before modifying tournament details, teams, players, categories, or bid rules.');
+      return true;
+    }
+    return false;
+  };
+
+  const handleReopenAuction = async () => {
+    if (!confirm('Reopen this auction? This will reactivate live bidding and unlock tournament/roster changes.')) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/tournaments/${tournament.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'live' }),
+      });
+      if (res.ok) {
+        notifySuccess('Auction reopened successfully! Modifications are now unlocked.');
+        if (onRefresh) onRefresh();
+      } else {
+        const d = await res.json();
+        setMessage({ type: 'error', text: d.error || 'Failed to reopen auction' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [sponsorForm, setSponsorForm] = useState({ name: '', logo: '', url: '', weight: 33 });
 
@@ -86,6 +118,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
 
   const handleAddSponsor = async (e) => {
     e.preventDefault();
+    if (checkCompletedLock()) return;
     if (!sponsorForm.logo || !sponsorForm.logo.trim()) {
       setMessage({ type: 'error', text: 'Please provide a sponsor logo/banner URL or upload an image' });
       return;
@@ -118,6 +151,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
   };
 
   const handleQuickWeightChange = async (sponsorId, newWeight) => {
+    if (checkCompletedLock()) return;
     const validWeight = Math.max(1, Math.min(100, parseInt(newWeight) || 1));
     try {
       await fetch(`/api/tournaments/${tournament.id}/sponsors`, {
@@ -132,6 +166,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
   };
 
   const handleAutoRebalanceSponsors = async () => {
+    if (checkCompletedLock()) return;
     if (sponsors.length === 0) return;
     setLoading(true);
     try {
@@ -155,6 +190,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
   };
 
   const handleDeleteSponsor = async (sponsorId) => {
+    if (checkCompletedLock()) return;
     if (!confirm('Remove this sponsor banner from tournament?')) return;
     setLoading(true);
     try {
@@ -220,6 +256,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
 
   // Quick Seed Demo Data
   const handleSeedDemoData = async () => {
+    if (checkCompletedLock()) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/tournaments/${tournament.id}/seed`, { method: 'POST' });
@@ -239,6 +276,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
   // Add Category
   const handleAddCategory = async (e) => {
     e.preventDefault();
+    if (checkCompletedLock()) return;
     if (!catForm.name) return;
     setLoading(true);
     try {
@@ -264,6 +302,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
   // Update Category
   const handleUpdateCategory = async (e) => {
     e.preventDefault();
+    if (checkCompletedLock()) return;
     if (!editingCategory) return;
     setLoading(true);
     try {
@@ -293,6 +332,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
 
   // Delete Category
   const handleDeleteCategory = async (categoryId, name) => {
+    if (checkCompletedLock()) return;
     if (!confirm(`Are you sure you want to delete category "${name}"?`)) return;
     setLoading(true);
     try {
@@ -318,6 +358,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
   // Save Bid Rules
   const handleSaveBidRules = async (e) => {
     e.preventDefault();
+    if (checkCompletedLock()) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/tournaments/${tournament.id}`, {
@@ -345,6 +386,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
   // Add Team
   const handleAddTeam = async (e) => {
     e.preventDefault();
+    if (checkCompletedLock()) return;
     if (!teamForm.name || !teamForm.shortName) return;
     setLoading(true);
     try {
@@ -384,6 +426,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
   // Update Team
   const handleSaveTeamEdit = async (e) => {
     e.preventDefault();
+    if (checkCompletedLock()) return;
     if (!editingTeam) return;
     setLoading(true);
     try {
@@ -416,6 +459,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
 
   // Delete Team
   const handleDeleteTeam = async (teamId, teamName) => {
+    if (checkCompletedLock()) return;
     if (!confirm(`Are you sure you want to delete "${teamName}"? All sales assigned to this team will be affected.`)) return;
     setLoading(true);
     try {
@@ -440,6 +484,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
   // Add Single Player
   const handleAddPlayer = async (e) => {
     e.preventDefault();
+    if (checkCompletedLock()) return;
     if (!playerForm.name) return;
     setLoading(true);
     try {
@@ -478,6 +523,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
   // Update Player
   const handleSavePlayerEdit = async (e) => {
     e.preventDefault();
+    if (checkCompletedLock()) return;
     if (!editingPlayer) return;
     setLoading(true);
     try {
@@ -511,6 +557,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
 
   // Delete Player
   const handleDeletePlayer = async (playerId, playerName) => {
+    if (checkCompletedLock()) return;
     if (!confirm(`Are you sure you want to delete player "${playerName}"?`)) return;
     setLoading(true);
     try {
@@ -535,6 +582,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
   // Bulk Import
   const handleBulkImport = async (e) => {
     e.preventDefault();
+    if (checkCompletedLock()) return;
     if (!bulkText.trim()) return;
     setLoading(true);
 
@@ -630,13 +678,13 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
             style={{
               padding: '10px 24px',
               borderRadius: 'var(--radius-pill)',
-              background: 'var(--accent-red)',
+              background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)',
               color: '#fff',
               border: 'none',
               fontWeight: 800,
               fontSize: '0.9rem',
               cursor: 'pointer',
-              boxShadow: 'var(--shadow-glow-red)',
+              boxShadow: '0 4px 15px rgba(139, 92, 246, 0.35)',
             }}
           >
             ← BACK TO AUCTION
@@ -671,6 +719,58 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
           </div>
         </div>
       </div>
+
+      {/* Auction Completed & Locked Notice */}
+      {isCompleted && (
+        <div style={{
+          width: '100%',
+          padding: '16px 20px',
+          marginBottom: 24,
+          borderRadius: 10,
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid var(--accent-red)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+          boxShadow: '0 4px 18px rgba(239, 68, 68, 0.12)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span style={{ fontSize: '1.8rem' }}>🔒</span>
+            <div>
+              <div style={{ fontWeight: 800, color: 'var(--accent-red)', fontSize: '1.05rem', letterSpacing: '0.5px' }}>
+                AUCTION COMPLETED & LOCKED (READ-ONLY)
+              </div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 3 }}>
+                Tournament settings, teams, players, categories, and bid rules are locked to preserve final auction results.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleReopenAuction}
+            disabled={loading}
+            style={{
+              padding: '10px 22px',
+              borderRadius: 8,
+              border: 'none',
+              background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)',
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(139, 92, 246, 0.4)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            🔄 REOPEN AUCTION FOR EDITS
+          </button>
+        </div>
+      )}
 
       {message && (
         <div style={{
@@ -786,7 +886,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                       background: 'rgba(255,255,255,0.06)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 6,
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                     }}
                   />
                 </div>
@@ -804,7 +904,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                       background: 'rgba(255,255,255,0.06)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 6,
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                     }}
                   />
                 </div>
@@ -822,7 +922,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                       background: 'rgba(255,255,255,0.06)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 6,
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                     }}
                   />
                 </div>
@@ -915,7 +1015,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                         background: 'rgba(255,255,255,0.06)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: 6,
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                         fontSize: '0.85rem',
                       }}
                     />
@@ -924,7 +1024,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                       background: 'rgba(255,255,255,0.1)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 6,
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                       fontSize: '0.8rem',
                       cursor: 'pointer',
                       display: 'flex',
@@ -964,15 +1064,16 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || isCompleted}
                   style={{
                     padding: '10px 24px',
-                    background: editingTeam ? 'var(--accent-gold)' : 'var(--accent-green)',
+                    background: editingTeam ? 'var(--accent-gold)' : 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)',
                     color: editingTeam ? '#000' : '#fff',
                     border: 'none',
                     borderRadius: 6,
                     fontWeight: 700,
-                    cursor: 'pointer',
+                    cursor: isCompleted ? 'not-allowed' : 'pointer',
+                    boxShadow: editingTeam ? 'none' : '0 2px 10px rgba(139, 92, 246, 0.35)',
                   }}
                 >
                   {editingTeam ? 'SAVE TEAM CHANGES ✔' : '+ ADD TEAM'}
@@ -1246,7 +1347,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                         background: 'rgba(255,255,255,0.06)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: 6,
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                       }}
                     />
                   </div>
@@ -1263,7 +1364,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                         background: 'rgba(255,255,255,0.06)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: 6,
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                       }}
                     />
                   </div>
@@ -1278,11 +1379,11 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                         background: 'rgba(255,255,255,0.06)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: 6,
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                       }}
                     >
                       {categories.map(c => (
-                        <option key={c.id} value={c.id} style={{ background: '#12112a' }}>
+                        <option key={c.id} value={c.id}>
                           {c.name} (Base ₹{c.basePrice.toLocaleString()})
                         </option>
                       ))}
@@ -1306,7 +1407,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                         background: 'rgba(255,255,255,0.06)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: 6,
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                       }}
                     />
                   </div>
@@ -1323,7 +1424,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                         background: 'rgba(255,255,255,0.06)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: 6,
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                       }}
                     />
                   </div>
@@ -1340,7 +1441,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                         background: 'rgba(255,255,255,0.06)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: 6,
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                       }}
                     />
                   </div>
@@ -1395,7 +1496,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                           background: 'rgba(255,255,255,0.06)',
                           border: '1px solid var(--border-subtle)',
                           borderRadius: 6,
-                          color: '#fff',
+                          color: 'var(--text-primary)',
                           fontSize: '0.85rem',
                         }}
                       />
@@ -1404,7 +1505,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                         background: 'rgba(255,255,255,0.1)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: 6,
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                         fontSize: '0.8rem',
                         cursor: 'pointer',
                         display: 'flex',
@@ -1471,15 +1572,16 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
                     type="submit"
-                    disabled={loading || categories.length === 0}
+                    disabled={loading || categories.length === 0 || isCompleted}
                     style={{
                       padding: '10px 24px',
-                      background: editingPlayer ? 'var(--accent-gold)' : 'var(--accent-green)',
+                      background: editingPlayer ? 'var(--accent-gold)' : 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)',
                       color: editingPlayer ? '#000' : '#fff',
                       border: 'none',
                       borderRadius: 6,
                       fontWeight: 700,
-                      cursor: 'pointer',
+                      cursor: isCompleted ? 'not-allowed' : 'pointer',
+                      boxShadow: editingPlayer ? 'none' : '0 2px 10px rgba(139, 92, 246, 0.35)',
                     }}
                   >
                     {editingPlayer ? 'SAVE PLAYER CHANGES ✔' : '+ ADD PLAYER'}
@@ -1519,11 +1621,11 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
                       background: 'rgba(255,255,255,0.06)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 6,
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                     }}
                   >
                     {categories.map(c => (
-                      <option key={c.id} value={c.id} style={{ background: '#12112a' }}>
+                      <option key={c.id} value={c.id}>
                         {c.name} (Base ₹{c.basePrice.toLocaleString()})
                       </option>
                     ))}
@@ -1548,7 +1650,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                       background: 'rgba(255,255,255,0.06)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 6,
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                       fontFamily: 'monospace',
                       fontSize: '0.85rem',
                     }}
@@ -1557,7 +1659,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
 
                 <button
                   type="submit"
-                  disabled={loading || categories.length === 0}
+                  disabled={loading || categories.length === 0 || isCompleted}
                   style={{
                     alignSelf: 'flex-start',
                     padding: '10px 28px',
@@ -1566,7 +1668,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                     border: 'none',
                     borderRadius: 6,
                     fontWeight: 800,
-                    cursor: 'pointer',
+                    cursor: isCompleted ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {loading ? 'IMPORTING PLAYERS...' : '⚡ IMPORT PLAYERS LIST'}
@@ -1591,7 +1693,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                       background: 'rgba(255,255,255,0.06)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 20,
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                       fontSize: '0.8rem',
                       width: 220,
                     }}
@@ -1610,7 +1712,8 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                     <div
                       key={p.id}
                       style={{
-                        background: 'rgba(255,255,255,0.03)',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-subtle)',
                         padding: '8px 14px',
                         borderRadius: 6,
                         display: 'flex',
@@ -1634,7 +1737,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                           />
                         ) : (
                           <span style={{
-                            background: 'var(--accent-green)',
+                            background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)',
                             color: '#fff',
                             width: 26,
                             height: 26,
@@ -1648,7 +1751,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                             #{p.playerNumber}
                           </span>
                         )}
-                        <span style={{ fontWeight: 700, color: '#fff' }}>{p.name}</span>
+                        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{p.name}</span>
                         <span style={{ color: 'var(--accent-cyan)', fontSize: '0.75rem' }}>{p.role || 'Player'}</span>
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
                           ({p.category?.name || 'General'})
@@ -1664,10 +1767,10 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                           }}
                           style={{
                             padding: '4px 10px',
-                            background: 'rgba(255,255,255,0.1)',
+                            background: 'var(--bg-card)',
                             border: '1px solid var(--border-subtle)',
                             borderRadius: 4,
-                            color: '#fff',
+                            color: 'var(--text-primary)',
                             fontSize: '0.75rem',
                             cursor: 'pointer',
                           }}
@@ -1716,7 +1819,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                   background: 'rgba(255,255,255,0.06)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 6,
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                 }}
               />
               <input
@@ -1733,7 +1836,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                   background: 'rgba(255,255,255,0.06)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 6,
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                 }}
               />
               <input
@@ -1750,20 +1853,21 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                   background: 'rgba(255,255,255,0.06)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 6,
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                 }}
               />
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || isCompleted}
                 style={{
                   padding: '10px 20px',
-                  background: 'var(--accent-green)',
+                  background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)',
                   color: '#fff',
                   border: 'none',
                   borderRadius: 6,
                   fontWeight: 700,
-                  cursor: 'pointer',
+                  cursor: isCompleted ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 2px 10px rgba(139, 92, 246, 0.35)',
                 }}
               >
                 + ADD
@@ -1781,7 +1885,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                       <div
                         key={c.id}
                         style={{
-                          background: 'rgba(255,255,255,0.06)',
+                          background: 'var(--bg-card)',
                           border: '1px solid var(--border-subtle)',
                           borderRadius: 8,
                           padding: '12px 16px',
@@ -1791,13 +1895,13 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                         }}
                       >
                         <div>
-                          <div style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>{c.name}</div>
+                          <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>{c.name}</div>
                           <div style={{ fontSize: '0.85rem', color: 'var(--accent-gold)', marginTop: 2 }}>
                             Min Points: ₹{c.basePrice.toLocaleString()}
                           </div>
                           <div style={{ fontSize: '0.78rem', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{
-                              background: c.maxPerTeam ? 'rgba(245, 184, 0, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                              background: c.maxPerTeam ? 'rgba(245, 184, 0, 0.15)' : 'var(--bg-tertiary)',
                               border: `1px solid ${c.maxPerTeam ? 'var(--accent-gold)' : 'var(--border-subtle)'}`,
                               color: c.maxPerTeam ? 'var(--accent-gold)' : 'var(--text-muted)',
                               borderRadius: 4,
@@ -1833,7 +1937,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                           <button
                             type="button"
                             onClick={() => handleDeleteCategory(c.id, c.name)}
-                            disabled={catPlayerCount > 0}
+                            disabled={catPlayerCount > 0 || isCompleted}
                             title={catPlayerCount > 0 ? "Cannot delete: players are assigned to this category" : "Delete category"}
                             style={{
                               background: catPlayerCount > 0 ? 'rgba(255,255,255,0.05)' : 'rgba(220,53,69,0.15)',
@@ -1919,7 +2023,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                           background: 'rgba(255,255,255,0.08)',
                           border: '1px solid var(--border-subtle)',
                           borderRadius: 6,
-                          color: '#fff',
+                          color: 'var(--text-primary)',
                         }}
                       />
                     </div>
@@ -1963,7 +2067,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                           background: 'rgba(255,255,255,0.08)',
                           border: '1px solid var(--border-subtle)',
                           borderRadius: 6,
-                          color: '#fff',
+                          color: 'var(--text-primary)',
                         }}
                       />
                       <small style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: 4 }}>
@@ -1978,9 +2082,9 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                         style={{
                           padding: '8px 16px',
                           borderRadius: 6,
-                          border: 'none',
-                          background: 'rgba(255,255,255,0.1)',
-                          color: '#fff',
+                          border: '1px solid var(--border-subtle)',
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-primary)',
                           fontSize: '0.85rem',
                           cursor: 'pointer',
                         }}
@@ -2127,7 +2231,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                       borderRadius: 20,
                       border: '1px solid rgba(255,255,255,0.2)',
                       background: 'rgba(255,255,255,0.06)',
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                       fontSize: '0.75rem',
                       cursor: 'pointer',
                     }}
@@ -2176,7 +2280,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                               background: 'rgba(255,255,255,0.08)',
                               border: '1px solid var(--border-subtle)',
                               borderRadius: 4,
-                              color: '#fff',
+                              color: 'var(--text-primary)',
                               fontWeight: 700,
                             }}
                           />
@@ -2199,10 +2303,10 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                           style={{
                             width: '100%',
                             padding: '6px 10px',
-                            background: 'rgba(40,167,69,0.15)',
-                            border: '1px solid var(--accent-green)',
+                            background: 'rgba(139, 92, 246, 0.12)',
+                            border: '1px solid var(--aa-primary, #8b5cf6)',
                             borderRadius: 4,
-                            color: 'var(--text-green)',
+                            color: 'var(--aa-primary, #8b5cf6)',
                             fontWeight: 800,
                           }}
                         />
@@ -2211,13 +2315,13 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                       <button
                         type="button"
                         onClick={() => setRulesSlabs(rulesSlabs.filter((_, i) => i !== idx))}
-                        disabled={rulesSlabs.length <= 1}
+                        disabled={rulesSlabs.length <= 1 || isCompleted}
                         style={{
                           background: 'none',
                           border: 'none',
                           color: rulesSlabs.length <= 1 ? 'rgba(255,255,255,0.2)' : 'var(--text-red)',
                           fontSize: '1.1rem',
-                          cursor: rulesSlabs.length <= 1 ? 'not-allowed' : 'pointer',
+                          cursor: (rulesSlabs.length <= 1 || isCompleted) ? 'not-allowed' : 'pointer',
                         }}
                       >
                         ✕
@@ -2240,6 +2344,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                     }
                     setRulesSlabs(newSlabs);
                   }}
+                  disabled={isCompleted}
                   style={{
                     padding: '8px 14px',
                     borderRadius: 6,
@@ -2248,7 +2353,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                     color: 'var(--accent-gold)',
                     fontWeight: 700,
                     fontSize: '0.8rem',
-                    cursor: 'pointer',
+                    cursor: isCompleted ? 'not-allowed' : 'pointer',
                   }}
                 >
                   + Add Another Slab Level
@@ -2280,7 +2385,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                     background: 'rgba(255,255,255,0.1)',
                     border: '1px solid var(--border-subtle)',
                     borderRadius: 4,
-                    color: '#fff',
+                    color: 'var(--text-primary)',
                     textAlign: 'center',
                   }}
                 />
@@ -2295,7 +2400,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || isCompleted}
               style={{
                 alignSelf: 'flex-start',
                 padding: '12px 28px',
@@ -2305,7 +2410,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                 borderRadius: 6,
                 fontWeight: 800,
                 fontSize: '0.95rem',
-                cursor: 'pointer',
+                cursor: isCompleted ? 'not-allowed' : 'pointer',
                 boxShadow: 'var(--shadow-glow-gold)',
               }}
             >
@@ -2469,7 +2574,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                       background: 'rgba(255,255,255,0.06)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 6,
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                     }}
                   />
                 </div>
@@ -2490,7 +2595,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                         background: 'rgba(255,255,255,0.06)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: 6,
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                       }}
                     />
                     <label style={{
@@ -2498,7 +2603,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                       background: 'rgba(255,255,255,0.1)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 6,
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                       fontSize: '0.85rem',
                       cursor: 'pointer',
                       display: 'flex',
@@ -2628,7 +2733,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || isCompleted}
                 style={{
                   alignSelf: 'flex-start',
                   padding: '12px 30px',
@@ -2638,7 +2743,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                   borderRadius: 6,
                   fontWeight: 800,
                   fontSize: '0.95rem',
-                  cursor: 'pointer',
+                  cursor: isCompleted ? 'not-allowed' : 'pointer',
                   boxShadow: 'var(--shadow-glow-gold)',
                   marginTop: 6,
                 }}
@@ -2659,12 +2764,12 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
               padding: '14px 44px',
               fontSize: '1.15rem',
               fontWeight: 800,
-              background: 'var(--accent-red)',
+              background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)',
               color: '#fff',
               border: 'none',
               borderRadius: 'var(--radius-pill)',
               cursor: 'pointer',
-              boxShadow: 'var(--shadow-glow-red)',
+              boxShadow: '0 4px 20px rgba(139, 92, 246, 0.4)',
               transition: 'all 0.3s',
             }}
           >

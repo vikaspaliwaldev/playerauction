@@ -45,7 +45,8 @@ export default function AuctionArena({
 
   const isSold = currentPlayer?.status === 'sold';
   const isUnsold = currentPlayer?.status === 'unsold';
-  const canReAuction = isSold || isUnsold || stampType;
+  const isCompleted = tournament?.status === 'completed';
+  const canReAuction = !isCompleted && (isSold || isUnsold || stampType);
   const soldTeam = isSold
     ? (currentPlayer.sale?.team || currentPlayer.soldToTeam || teams.find(t => t.id === currentPlayer.teamId || t.id === currentPlayer.sale?.teamId))
     : null;
@@ -117,6 +118,10 @@ export default function AuctionArena({
   }, [timerActive, currentPlayer?.id, isSold, isUnsold, stampType, maxBidTime, soundEnabled]);
 
   const handleNewPlayer = () => {
+    if (isCompleted) {
+      alert('Auction is completed and locked. Please reopen auction from Manage Panel first.');
+      return;
+    }
     if (isSpinning) return;
     if (currentPlayer?.status === 'available' && currentTeam && !confirm('A bid is currently in progress for this player. Are you sure you want to cancel the bidding and spin for a new player?')) {
       return;
@@ -131,6 +136,10 @@ export default function AuctionArena({
 
   const handlePlayerNumberSubmit = (e) => {
     e.preventDefault();
+    if (isCompleted) {
+      alert('Auction is completed and locked. Please reopen auction from Manage Panel first.');
+      return;
+    }
     if (playerNumberInput) {
       onDrawPlayer(parseInt(playerNumberInput));
       setPlayerNumberInput('');
@@ -593,7 +602,7 @@ export default function AuctionArena({
             title="Type any final / fixed price here"
             value={currentBid || ''}
             onChange={(e) => onUpdateBid && onUpdateBid(parseInt(e.target.value) || 0)}
-            disabled={isSold || isUnsold}
+            disabled={isCompleted || isSold || isUnsold}
           />
         </div>
 
@@ -602,12 +611,12 @@ export default function AuctionArena({
           type="button"
           className="control-bar__btn"
           onClick={onIncrementBid}
-          disabled={!currentPlayer || !!stampType || isSold || isUnsold}
+          disabled={isCompleted || !currentPlayer || !!stampType || isSold || isUnsold}
           title={`Click or press ↑ (Up Arrow) to increment bid by +₹${currentIncrement.toLocaleString()} (${tournament?.incrementType === 'slabs' ? 'Tiered Slab' : 'Flat'})`}
           style={{
-            background: 'rgba(40, 167, 69, 0.25)',
-            border: '1px solid var(--accent-green)',
-            color: 'var(--text-green)',
+            background: 'rgba(139, 92, 246, 0.18)',
+            border: '1px solid var(--aa-primary, #8b5cf6)',
+            color: 'var(--aa-primary, #8b5cf6)',
             fontWeight: 800,
             fontSize: '0.85rem',
             padding: '0 10px',
@@ -651,7 +660,9 @@ export default function AuctionArena({
           const isQuotaReached = isTeamCategoryQuotaReached(team, currentPlayer?.categoryId, tournament);
           const catCount = currentCat?.maxPerTeam ? getTeamCategoryCount(team, currentPlayer?.categoryId, tournament) : 0;
 
-          const buttonTitle = isQuotaReached
+          const buttonTitle = isCompleted
+            ? 'Auction is completed and locked'
+            : isQuotaReached
             ? `Max quota reached: ${team.name} already has ${catCount}/${currentCat.maxPerTeam} from ${currentCat.name}`
             : effectiveHotkey
             ? `Shortcut: Press [${effectiveHotkey.toUpperCase()}] or click to bid for ${team.name}`
@@ -662,17 +673,17 @@ export default function AuctionArena({
               key={team.id}
               className={`control-bar__btn control-bar__btn--team ${currentTeam?.id === team.id ? 'bidding' : ''}`}
               onClick={() => onPlaceBid(team)}
-              disabled={!currentPlayer || !!stampType || isSold || isUnsold || isQuotaReached}
+              disabled={isCompleted || !currentPlayer || !!stampType || isSold || isUnsold || isQuotaReached}
               title={buttonTitle}
               style={{
                 borderBottom: team.color ? `3px solid ${team.color}` : undefined,
                 position: 'relative',
-                opacity: isQuotaReached ? 0.38 : 1,
-                cursor: isQuotaReached ? 'not-allowed' : 'pointer',
+                opacity: (isQuotaReached || isCompleted) ? 0.38 : 1,
+                cursor: (isQuotaReached || isCompleted) ? 'not-allowed' : 'pointer',
               }}
             >
               <span style={{ fontWeight: 800 }}>{team.shortName}</span>
-              {effectiveHotkey && !isQuotaReached && (
+              {effectiveHotkey && !isQuotaReached && !isCompleted && (
                 <span className="control-bar__team-hotkey-badge">
                   {effectiveHotkey.toUpperCase()}
                 </span>
@@ -707,8 +718,26 @@ export default function AuctionArena({
           );
         })}
 
-        {/* Sold / Unsold / Persistent Re-Auction Controls */}
-        {canReAuction ? (
+        {/* Sold / Unsold / Persistent Re-Auction Controls / Completed Lock */}
+        {isCompleted ? (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 14px',
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: 6,
+            color: 'var(--text-primary)',
+            fontSize: '0.82rem',
+            fontWeight: 800,
+          }}>
+            <span>🔒 AUCTION COMPLETED</span>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+              Reopen in Manage Panel to unlock bidding & re-auction
+            </span>
+          </div>
+        ) : canReAuction ? (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <button
               className="control-bar__btn control-bar__btn--reauction"
@@ -728,7 +757,7 @@ export default function AuctionArena({
               onClick={handleNewPlayer}
               disabled={isSpinning}
               style={{
-                background: 'linear-gradient(135deg, #10b981, #059669)',
+                background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)',
                 color: '#fff',
                 fontWeight: 900,
               }}

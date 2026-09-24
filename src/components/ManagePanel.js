@@ -218,9 +218,54 @@ export default function ManagePanel({
     }
   };
 
+  const handleExportCSV = () => {
+    const playersList = tournament?.players || [];
+    const headers = [
+      'Player Number',
+      'Name',
+      'Category',
+      'Role',
+      'Base Price',
+      'Status',
+      'Team',
+      'Sold Price',
+      'Points/Rating'
+    ];
+    const rows = playersList.map(p => {
+      const escape = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
+      return [
+        p.playerNumber || '',
+        escape(p.name),
+        escape(p.category?.name),
+        escape(p.role),
+        p.category?.basePrice || 0,
+        p.status,
+        escape(p.sale?.team?.name || 'Unsold/Available'),
+        p.sale?.soldPrice || 0,
+        p.points || 0
+      ].join(',');
+    });
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${tournament?.name?.replace(/\s+/g, '_') || 'Auction'}_Report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="manage-panel">
-      <h2 className="manage-panel__title">AUCTION MANAGEMENT & CONTROLS</h2>
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <h2 className="manage-panel__title" style={{ margin: 0, letterSpacing: '0.08em', color: 'var(--text-primary)' }}>
+          AUCTION MANAGEMENT & CONTROLS
+        </h2>
+        <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          Configure live bidding, manage tournament rosters, and broadcast sponsor campaigns
+        </p>
+      </div>
 
       {/* Quick Stats Summary */}
       <div style={{
@@ -229,27 +274,97 @@ export default function ManagePanel({
         gap: 12,
         marginBottom: 24,
       }}>
-        <div style={{ background: 'var(--bg-card)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>TOTAL TEAMS</div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>{teams.length}</div>
+        <div style={{ background: 'var(--aa-surface-container, var(--bg-card))', padding: '14px 18px', borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
+          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-display)', letterSpacing: '0.08em' }}>TOTAL TEAMS</div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{teams.length}</div>
         </div>
-        <div style={{ background: 'var(--bg-card)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>TOTAL PLAYERS</div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>{players.length}</div>
+        <div style={{ background: 'var(--aa-surface-container, var(--bg-card))', padding: '14px 18px', borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
+          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-display)', letterSpacing: '0.08em' }}>TOTAL PLAYERS</div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{players.length}</div>
         </div>
-        <div style={{ background: 'var(--bg-card)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-green)' }}>SOLD PLAYERS</div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-green)' }}>{soldCount}</div>
+        <div style={{ background: 'var(--aa-surface-container, var(--bg-card))', padding: '14px 18px', borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
+          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-display)', letterSpacing: '0.08em' }}>SOLD PLAYERS</div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--aa-primary, #8b5cf6)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{soldCount}</div>
         </div>
-        <div style={{ background: 'var(--bg-card)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-red)' }}>UNSOLD PLAYERS</div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-red)' }}>{unsoldCount}</div>
+        <div style={{ background: 'var(--aa-surface-container, var(--bg-card))', padding: '14px 18px', borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
+          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-display)', letterSpacing: '0.08em' }}>UNSOLD PLAYERS</div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{unsoldCount}</div>
         </div>
-        <div style={{ background: 'var(--bg-card)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--accent-gold)' }}>TOTAL SPENT</div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-gold)' }}>₹{totalSpent.toLocaleString()}</div>
+        <div style={{ background: 'var(--aa-surface-container, var(--bg-card))', padding: '14px 18px', borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
+          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-display)', letterSpacing: '0.08em' }}>TOTAL SPENT</div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--accent-gold)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>₹{totalSpent.toLocaleString()}</div>
         </div>
       </div>
+
+      {/* Completed Auction Banner */}
+      {tournament?.status === 'completed' && (
+        <div style={{
+          width: '100%',
+          padding: '16px 20px',
+          marginBottom: 18,
+          borderRadius: 12,
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid var(--accent-red)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+          boxShadow: '0 4px 20px rgba(239, 68, 68, 0.12)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span style={{ fontSize: '1.8rem' }}>🔒</span>
+            <div>
+              <div style={{ fontWeight: 800, color: 'var(--accent-red)', fontSize: '1.05rem', letterSpacing: '0.5px' }}>
+                AUCTION COMPLETED & LOCKED
+              </div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 3 }}>
+                Live bidding, re-auctioning, and roster changes (teams, players, categories, bids) are locked.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="manage-panel__action-btn"
+            style={{
+              padding: '10px 22px',
+              borderRadius: 8,
+              border: 'none',
+              background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)',
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(139, 92, 246, 0.4)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              whiteSpace: 'nowrap',
+            }}
+            onClick={async () => {
+              if (!confirm('Reopen this auction? It will reactivate live bidding and unlock tournament/roster changes.')) return;
+              try {
+                const res = await fetch(`/api/tournaments/${tournamentId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status: 'live' }),
+                });
+                if (res.ok) {
+                  alert('Auction reopened successfully! Live bidding and edits are unlocked.');
+                  onRefresh();
+                } else {
+                  const d = await res.json();
+                  alert(d.error || 'Failed to reopen auction');
+                }
+              } catch (err) {
+                alert(err.message);
+              }
+            }}
+          >
+            🔄 REOPEN AUCTION NOW
+          </button>
+        </div>
+      )}
 
       {/* Setup / Add Roster Button */}
       {onOpenSetup && (
@@ -258,11 +373,11 @@ export default function ManagePanel({
             className="manage-panel__action-btn"
             style={{
               width: '100%',
-              background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+              background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6) 0%, #6d28d9 100%)',
               color: '#fff',
               fontSize: '1.05rem',
               fontWeight: 800,
-              boxShadow: '0 4px 15px rgba(16, 185, 129, 0.35)',
+              boxShadow: '0 4px 16px rgba(139, 92, 246, 0.35)',
             }}
             onClick={onOpenSetup}
           >
@@ -273,62 +388,76 @@ export default function ManagePanel({
 
 
       {/* Action Buttons Grid */}
-      <div className="manage-panel__actions-grid">
+      <div className="manage-panel__actions-grid" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: 12,
+        marginBottom: 24,
+      }}>
         <button
+          type="button"
           className="manage-panel__action-btn"
-          style={{ background: '#b91c1c' }}
-          onClick={() => onReset('all')}
+          onClick={handleExportCSV}
+          title="Download complete team-wise and player-wise auction report in CSV"
         >
-          ⚠ RESET ENTIRE AUCTION (ALL SALES & BIDS)
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--aa-primary, #8b5cf6)' }}>download</span>
+          <span>DOWNLOAD CSV REPORT</span>
         </button>
 
         <button
+          type="button"
           className="manage-panel__action-btn"
-          style={{ background: '#c2410c' }}
-          onClick={() => onReset('unsold')}
-        >
-          ↻ RE-AUCTION ALL UNSOLD PLAYERS
-        </button>
-
-        <button
-          className="manage-panel__action-btn"
-          style={{ background: 'var(--accent-purple)' }}
           onClick={() => onReset('bids')}
         >
-          RESET CURRENT PLAYER BID
+          <span>↻</span>
+          <span>RESET CURRENT PLAYER BID</span>
         </button>
 
         <button
+          type="button"
           className="manage-panel__action-btn"
-          style={{ background: 'var(--accent-blue)' }}
           onClick={onRefresh}
         >
-          SYNC & REFRESH DATA
+          <span>🔄</span>
+          <span>SYNC & REFRESH DATA</span>
         </button>
 
         <button
+          type="button"
           className="manage-panel__action-btn"
-          style={{ background: 'rgba(245, 184, 0, 0.2)', border: '1px solid var(--accent-gold)', color: 'var(--accent-gold)' }}
           onClick={() => setShowBidRules(true)}
         >
-          📈 BID INCREMENT RULES ({tournament?.incrementType === 'slabs' ? 'TIERED SLABS' : `FLAT +₹${tournament?.baseIncrement || 100}`})
+          <span>📈</span>
+          <span>BID RULES ({tournament?.incrementType === 'slabs' ? 'TIERED SLABS' : `FLAT +₹${tournament?.baseIncrement || 100}`})</span>
         </button>
 
         <button
-          className="manage-panel__action-btn"
-          style={{
-            background: tournament?.status === 'completed'
-              ? 'rgba(78, 222, 163, 0.15)'
-              : 'rgba(245, 158, 11, 0.15)',
-            border: `1px solid ${tournament?.status === 'completed' ? 'var(--accent-green)' : 'var(--accent-orange)'}`,
-            color: tournament?.status === 'completed' ? 'var(--accent-green)' : 'var(--accent-orange)',
+          type="button"
+          className={`manage-panel__action-btn ${tournament?.status === 'completed' ? '' : 'manage-panel__action-btn--primary'}`}
+          style={tournament?.status === 'completed' ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}
+          disabled={tournament?.status === 'completed'}
+          onClick={() => {
+            if (tournament?.status === 'completed') {
+              alert('Auction is completed and locked. Please reopen the auction first before re-auctioning unsold players.');
+              return;
+            }
+            onReset('unsold');
           }}
+          title={tournament?.status === 'completed' ? 'Auction is completed. Reopen auction to re-auction players.' : 'Re-auction all unsold players'}
+        >
+          <span>↻</span>
+          <span>RE-AUCTION ALL UNSOLD PLAYERS</span>
+        </button>
+
+        <button
+          type="button"
+          className={`manage-panel__action-btn ${tournament?.status === 'completed' ? 'manage-panel__action-btn--primary' : 'manage-panel__action-btn--outline-theme'}`}
           onClick={async () => {
             const isCompleted = tournament?.status === 'completed';
             const action = isCompleted ? 'reopen' : 'finish';
             const confirmMsg = isCompleted
-              ? 'Reopen this auction? It will become visible in the Live section again.'
-              : 'Finish this auction? It will be removed from the public Live section. You can reopen it later if needed.';
+              ? 'Reopen this auction? It will reactivate live bidding and unlock tournament/roster changes.'
+              : 'Finish this auction? It will be marked completed, removed from the public Live section, and locked in read-only mode to prevent accidental changes. You can reopen it anytime.';
             if (!confirm(confirmMsg)) return;
             try {
               const res = await fetch(`/api/tournaments/${tournamentId}`, {
@@ -337,7 +466,7 @@ export default function ManagePanel({
                 body: JSON.stringify({ status: isCompleted ? 'live' : 'completed' }),
               });
               if (res.ok) {
-                alert(isCompleted ? 'Auction reopened successfully!' : 'Auction finished! It is now removed from the live section.');
+                alert(isCompleted ? 'Auction reopened successfully! Live bidding and editing are now active.' : 'Auction marked as completed and locked.');
                 onRefresh();
               } else {
                 const d = await res.json();
@@ -348,7 +477,26 @@ export default function ManagePanel({
             }
           }}
         >
-          {tournament?.status === 'completed' ? '🔄 REOPEN AUCTION' : '🏁 FINISH AUCTION'}
+          <span>{tournament?.status === 'completed' ? '🔄' : '🏁'}</span>
+          <span>{tournament?.status === 'completed' ? 'REOPEN AUCTION' : 'FINISH AUCTION'}</span>
+        </button>
+
+        <button
+          type="button"
+          className="manage-panel__action-btn manage-panel__action-btn--danger"
+          style={tournament?.status === 'completed' ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}
+          disabled={tournament?.status === 'completed'}
+          onClick={() => {
+            if (tournament?.status === 'completed') {
+              alert('Auction is completed and locked. Please reopen the auction first before resetting.');
+              return;
+            }
+            onReset('all');
+          }}
+          title={tournament?.status === 'completed' ? 'Auction is completed. Reopen auction to reset.' : 'Reset all sold/unsold status'}
+        >
+          <span>⚠</span>
+          <span>RESET ENTIRE AUCTION</span>
         </button>
       </div>
 
@@ -400,21 +548,66 @@ export default function ManagePanel({
 
         {/* Toggle Group 3: Audio Effects */}
         <div className="manage-panel__toggle-group">
-          <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            Audio Effects & Gavel
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+              Audio Effects & Gavel
+            </span>
+            {auctionState?.fireworkAudio ? (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 12,
+                background: 'rgba(139, 92, 246, 0.18)',
+                border: '1px solid var(--aa-primary, #8b5cf6)',
+                color: 'var(--aa-primary, #8b5cf6)',
+                fontSize: '0.7rem',
+                fontWeight: 800,
+                letterSpacing: '0.5px'
+              }}>
+                ● ON
+              </span>
+            ) : (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 12,
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#ef4444',
+                fontSize: '0.7rem',
+                fontWeight: 800,
+                letterSpacing: '0.5px'
+              }}>
+                ○ MUTED
+              </span>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 4 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
             <button
+              type="button"
               className={`manage-panel__toggle-btn ${auctionState?.fireworkAudio ? 'active' : ''}`}
               onClick={() => onUpdateMode('fireworkAudio', true)}
+              style={{
+                flex: 1,
+                border: auctionState?.fireworkAudio ? '1.5px solid var(--aa-primary, #8b5cf6)' : '1px solid var(--border-subtle)',
+                background: auctionState?.fireworkAudio ? 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)' : 'var(--bg-card)',
+                color: auctionState?.fireworkAudio ? '#ffffff' : 'var(--text-secondary)',
+                fontWeight: auctionState?.fireworkAudio ? 700 : 500,
+              }}
             >
-              Sound ON 🔊
+              🔊 Sound ON {auctionState?.fireworkAudio ? '✓' : ''}
             </button>
             <button
+              type="button"
               className={`manage-panel__toggle-btn ${!auctionState?.fireworkAudio ? 'active' : ''}`}
               onClick={() => onUpdateMode('fireworkAudio', false)}
+              style={{
+                flex: 1,
+                border: !auctionState?.fireworkAudio ? '1.5px solid rgba(239, 68, 68, 0.6)' : '1px solid var(--border-subtle)',
+                background: !auctionState?.fireworkAudio ? 'rgba(239, 68, 68, 0.18)' : 'var(--bg-card)',
+                color: !auctionState?.fireworkAudio ? '#ef4444' : 'var(--text-secondary)',
+                fontWeight: !auctionState?.fireworkAudio ? 700 : 500,
+              }}
             >
-              Sound OFF 🔇
+              🔇 Sound OFF {!auctionState?.fireworkAudio ? '✓' : ''}
             </button>
           </div>
 
@@ -423,68 +616,32 @@ export default function ManagePanel({
             <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
               <button
                 type="button"
+                className="manage-panel__sound-test-btn"
                 onClick={() => playBidSound(true)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 4,
-                  padding: '3px 8px',
-                  color: 'var(--accent-gold)',
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
                 title="Test Bid Gavel Sound"
               >
                 🔨 Test Bid
               </button>
               <button
                 type="button"
+                className="manage-panel__sound-test-btn"
                 onClick={() => playSoldSound(true)}
-                style={{
-                  background: 'rgba(40, 167, 69, 0.15)',
-                  border: '1px solid var(--accent-green)',
-                  borderRadius: 4,
-                  padding: '3px 8px',
-                  color: 'var(--text-green)',
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
                 title="Test Sold Fanfare Sound"
               >
                 🏆 Test Sold
               </button>
               <button
                 type="button"
+                className="manage-panel__sound-test-btn"
                 onClick={() => playUnsoldSound(true)}
-                style={{
-                  background: 'rgba(220, 53, 69, 0.15)',
-                  border: '1px solid var(--accent-red)',
-                  borderRadius: 4,
-                  padding: '3px 8px',
-                  color: 'var(--text-red)',
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
                 title="Test Unsold Sound"
               >
                 ❌ Test Unsold
               </button>
               <button
                 type="button"
+                className="manage-panel__sound-test-btn"
                 onClick={() => playDrawPlayerSound(true)}
-                style={{
-                  background: 'rgba(74, 111, 165, 0.15)',
-                  border: '1px solid var(--accent-blue)',
-                  borderRadius: 4,
-                  padding: '3px 8px',
-                  color: 'var(--accent-cyan)',
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
                 title="Test Draw Player Action Sound"
               >
                 🎡 Test Action
@@ -496,19 +653,19 @@ export default function ManagePanel({
 
       {/* MULTI-SPONSOR BANNER MANAGEMENT WITH 10S ROTATION & WEIGHTAGES */}
       <div style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid var(--border-gold)',
+        background: 'var(--aa-surface-container, var(--bg-card))',
+        border: '1px solid var(--border-subtle)',
         borderRadius: 14,
         padding: '24px 28px',
         marginBottom: 28,
-        boxShadow: '0 4px 25px rgba(0,0,0,0.5)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
       }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: '1.6rem' }}>🏷️</span>
             <div>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-gold)', margin: 0, letterSpacing: 0.5 }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: 0.5 }}>
                 TOURNAMENT SPONSORS & 10s ROTATING BANNERS
               </h3>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
@@ -525,12 +682,13 @@ export default function ManagePanel({
                 style={{
                   padding: '6px 14px',
                   borderRadius: 6,
-                  border: '1px solid var(--accent-cyan)',
-                  background: 'rgba(6, 182, 212, 0.15)',
-                  color: 'var(--accent-cyan)',
+                  border: '1px solid var(--aa-primary, #8b5cf6)',
+                  background: 'rgba(139, 92, 246, 0.1)',
+                  color: 'var(--aa-primary, #8b5cf6)',
                   fontSize: '0.78rem',
                   fontWeight: 700,
                   cursor: 'pointer',
+                  transition: 'all 0.2s ease',
                 }}
               >
                 ⚖️ Auto-Distribute Equal %
@@ -538,9 +696,9 @@ export default function ManagePanel({
             )}
             <span style={{
               fontSize: '0.75rem',
-              background: weightValidation.isValid ? 'rgba(74, 222, 128, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-              color: weightValidation.isValid ? '#4ade80' : '#ef4444',
-              border: `1px solid ${weightValidation.isValid ? '#4ade80' : '#ef4444'}`,
+              background: weightValidation.isValid ? 'rgba(139, 92, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+              color: weightValidation.isValid ? 'var(--aa-primary, #8b5cf6)' : '#ef4444',
+              border: `1px solid ${weightValidation.isValid ? 'var(--aa-primary, #8b5cf6)' : 'rgba(239, 68, 68, 0.4)'}`,
               padding: '4px 10px',
               borderRadius: 12,
               fontWeight: 800,
@@ -555,9 +713,9 @@ export default function ManagePanel({
             padding: '10px 16px',
             borderRadius: 6,
             marginBottom: 16,
-            background: sponsorMsg.type === 'success' ? 'rgba(40, 167, 69, 0.2)' : 'rgba(220, 53, 69, 0.2)',
-            border: `1px solid ${sponsorMsg.type === 'success' ? 'var(--accent-green)' : 'var(--accent-red)'}`,
-            color: sponsorMsg.type === 'success' ? 'var(--text-green)' : 'var(--text-red)',
+            background: sponsorMsg.type === 'success' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+            border: `1px solid ${sponsorMsg.type === 'success' ? 'var(--aa-primary, #8b5cf6)' : '#ef4444'}`,
+            color: sponsorMsg.type === 'success' ? 'var(--aa-primary, #8b5cf6)' : '#ef4444',
             fontSize: '0.85rem',
             fontWeight: 700,
           }}>
@@ -568,8 +726,8 @@ export default function ManagePanel({
         {/* Live Synchronized 10s Rotation Status Bar */}
         {sponsors.length > 0 && (
           <div style={{
-            background: 'linear-gradient(90deg, rgba(245, 184, 0, 0.1), rgba(168, 85, 247, 0.1))',
-            border: '1px solid rgba(245, 184, 0, 0.3)',
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: 8,
             padding: '10px 16px',
             marginBottom: 18,
@@ -585,8 +743,8 @@ export default function ManagePanel({
                 width: 10,
                 height: 10,
                 borderRadius: '50%',
-                background: '#4ade80',
-                boxShadow: '0 0 10px #4ade80',
+                background: 'var(--aa-primary, #8b5cf6)',
+                boxShadow: '0 0 10px rgba(139, 92, 246, 0.6)',
               }} />
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                 LIVE ON STREAM & PROJECTOR RIGHT NOW:
@@ -598,13 +756,13 @@ export default function ManagePanel({
                     <div className="sponsor-logo-box" style={{ padding: '2px 6px', height: 28 }}>
                       <img src={activeLiveSponsor.logo} alt="Live" style={{ maxHeight: 22, maxWidth: 70, objectFit: 'contain' }} />
                     </div>
-                    <strong style={{ color: 'var(--accent-gold)', fontSize: '0.9rem' }}>
+                    <strong style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>
                       {activeLiveSponsor.name}
                     </strong>
-                    <span style={{ fontSize: '0.72rem', background: 'rgba(245, 184, 0, 0.2)', color: 'var(--accent-gold)', padding: '1px 6px', borderRadius: 4 }}>
+                    <span style={{ fontSize: '0.72rem', background: 'rgba(139, 92, 246, 0.15)', color: 'var(--aa-primary, #8b5cf6)', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
                       {activeLiveSponsor.weight}% weight
                     </span>
-                    {link && <span style={{ fontSize: '0.72rem', color: 'var(--accent-cyan)' }}>↗</span>}
+                    {link && <span style={{ fontSize: '0.72rem', color: 'var(--aa-primary, #8b5cf6)' }}>↗</span>}
                   </div>
                 );
                 return link ? (
@@ -627,9 +785,9 @@ export default function ManagePanel({
               )}
             </div>
             {sponsors.length > 1 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: '#c084fc', fontWeight: 700 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
                 <span>⏱️ Next 10s Rotation In:</span>
-                <span style={{ background: '#7c3aed', color: '#fff', padding: '2px 8px', borderRadius: 6, fontFamily: 'monospace', fontWeight: 900 }}>
+                <span style={{ background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)', color: '#fff', padding: '2px 8px', borderRadius: 6, fontFamily: 'monospace', fontWeight: 900 }}>
                   {secondsLeftInSlot}s
                 </span>
               </div>
@@ -637,16 +795,16 @@ export default function ManagePanel({
           </div>
         )}
 
-        {/* Visual Multi-Color Allocation Bar */}
+        {/* Visual Theme Allocation Bar */}
         {sponsors.length > 0 && (
           <div style={{ marginBottom: 18 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 4 }}>
               <span>BANNER DISPLAY TIME ALLOCATION (100-SECOND CYCLE):</span>
               <span>Each 10% weight = 10 seconds of airtime</span>
             </div>
-            <div style={{ display: 'flex', height: 12, borderRadius: 6, overflow: 'hidden', background: 'rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', background: 'var(--bg-tertiary)' }}>
               {sponsors.map((s, idx) => {
-                const colors = ['#f5b800', '#06b6d4', '#a855f7', '#ec4899', '#10b981', '#f97316'];
+                const colors = ['#8b5cf6', '#6366f1', '#0ea5e9', '#3b82f6', '#a855f7', '#7c3aed'];
                 const color = colors[idx % colors.length];
                 const width = Math.max(2, s.weight || 10);
                 return (
@@ -671,16 +829,14 @@ export default function ManagePanel({
             <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
               ACTIVE TOURNAMENT SPONSORS ({sponsors.length}):
             </div>
-            {sponsors.map((s, idx) => {
+            {sponsors.map((s) => {
               const isCurrentlyLive = activeLiveSponsor?.id === s.id;
-              const colors = ['#f5b800', '#06b6d4', '#a855f7', '#ec4899', '#10b981', '#f97316'];
-              const accentColor = colors[idx % colors.length];
               return (
                 <div
                   key={s.id}
                   style={{
-                    background: isCurrentlyLive ? 'rgba(245, 184, 0, 0.08)' : 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${isCurrentlyLive ? 'var(--accent-gold)' : 'var(--border-subtle)'}`,
+                    background: isCurrentlyLive ? 'rgba(139, 92, 246, 0.08)' : 'var(--bg-tertiary)',
+                    border: `1px solid ${isCurrentlyLive ? 'var(--aa-primary, #8b5cf6)' : 'var(--border-subtle)'}`,
                     borderRadius: 8,
                     padding: '12px 18px',
                     display: 'flex',
@@ -702,7 +858,7 @@ export default function ManagePanel({
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{s.name}</span>
                         {isCurrentlyLive && (
-                          <span style={{ fontSize: '0.68rem', background: '#4ade80', color: '#000', padding: '1px 6px', borderRadius: 4, fontWeight: 900 }}>
+                          <span style={{ fontSize: '0.68rem', background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)', color: '#ffffff', padding: '2px 7px', borderRadius: 4, fontWeight: 800, letterSpacing: '0.5px' }}>
                             ON AIR NOW
                           </span>
                         )}
@@ -718,7 +874,7 @@ export default function ManagePanel({
                             rel="noopener noreferrer"
                             style={{
                               fontSize: '0.72rem',
-                              color: 'var(--accent-cyan)',
+                              color: 'var(--aa-primary, #8b5cf6)',
                               textDecoration: 'none',
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -735,7 +891,7 @@ export default function ManagePanel({
 
                   {/* Weight % Editor */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.3)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-card)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>WEIGHT:</span>
                       <input
                         type="number"
@@ -746,16 +902,16 @@ export default function ManagePanel({
                         style={{
                           width: 44,
                           padding: '2px 4px',
-                          background: 'rgba(255,255,255,0.1)',
+                          background: 'var(--bg-tertiary)',
                           border: '1px solid var(--border-subtle)',
                           borderRadius: 4,
-                          color: 'var(--accent-gold)',
+                          color: 'var(--text-primary)',
                           fontWeight: 800,
                           fontSize: '0.85rem',
                           textAlign: 'center',
                         }}
                       />
-                      <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--accent-gold)' }}>%</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--aa-primary, #8b5cf6)' }}>%</span>
                     </div>
 
                     <button
@@ -780,9 +936,9 @@ export default function ManagePanel({
                       style={{
                         padding: '6px 12px',
                         borderRadius: 6,
-                        border: '1px solid rgba(220, 53, 69, 0.4)',
-                        background: 'rgba(220, 53, 69, 0.15)',
-                        color: 'var(--text-red)',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        color: '#ef4444',
                         fontSize: '0.78rem',
                         cursor: 'pointer',
                         fontWeight: 700,
@@ -797,7 +953,7 @@ export default function ManagePanel({
           </div>
         ) : (
           <div style={{
-            background: 'rgba(0,0,0,0.3)',
+            background: 'var(--bg-tertiary)',
             borderRadius: 8,
             padding: 20,
             textAlign: 'center',
@@ -811,13 +967,13 @@ export default function ManagePanel({
 
         {/* Add / Edit Sponsor Form */}
         <div style={{
-          background: 'rgba(0,0,0,0.3)',
+          background: 'var(--bg-tertiary)',
           border: '1px solid var(--border-subtle)',
           borderRadius: 10,
           padding: '18px 20px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: editingSponsorId ? 'var(--accent-gold)' : '#fff' }}>
+            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: editingSponsorId ? 'var(--aa-primary, #8b5cf6)' : 'var(--text-primary)' }}>
               {editingSponsorId ? '✏️ EDIT SPONSOR BANNER' : '➕ ADD NEW SPONSOR BANNER'}
             </h4>
             {editingSponsorId && (
@@ -853,10 +1009,10 @@ export default function ManagePanel({
                   style={{
                     width: '100%',
                     padding: '9px 12px',
-                    background: 'rgba(255,255,255,0.06)',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border-subtle)',
                     borderRadius: 6,
-                    color: '#fff',
+                    color: 'var(--text-primary)',
                     fontSize: '0.85rem',
                   }}
                 />
@@ -875,10 +1031,10 @@ export default function ManagePanel({
                     style={{
                       flex: 1,
                       padding: '9px 12px',
-                      background: 'rgba(255,255,255,0.06)',
+                      background: 'var(--bg-card)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 6,
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                       fontSize: '0.85rem',
                     }}
                   />
@@ -921,10 +1077,10 @@ export default function ManagePanel({
                   style={{
                     width: '100%',
                     padding: '9px 12px',
-                    background: 'rgba(255,255,255,0.06)',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border-subtle)',
                     borderRadius: 6,
-                    color: 'var(--accent-cyan)',
+                    color: 'var(--text-primary)',
                     fontSize: '0.85rem',
                   }}
                 />
@@ -945,15 +1101,15 @@ export default function ManagePanel({
                     style={{
                       width: '100%',
                       padding: '9px 12px',
-                      background: 'rgba(255,255,255,0.06)',
+                      background: 'var(--bg-card)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 6,
-                      color: 'var(--accent-gold)',
+                      color: 'var(--text-primary)',
                       fontWeight: 800,
                       fontSize: '0.85rem',
                     }}
                   />
-                  <span style={{ color: 'var(--accent-gold)', fontWeight: 800, fontSize: '0.9rem' }}>%</span>
+                  <span style={{ color: 'var(--aa-primary, #8b5cf6)', fontWeight: 800, fontSize: '0.9rem' }}>%</span>
                 </div>
               </div>
             </div>
@@ -963,8 +1119,8 @@ export default function ManagePanel({
               <div style={{
                 padding: '8px 14px',
                 borderRadius: 6,
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px dashed var(--border-gold)',
+                background: 'var(--bg-card)',
+                border: '1px dashed var(--border-subtle)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 14,
@@ -975,11 +1131,11 @@ export default function ManagePanel({
                   style={{ maxHeight: 42, maxWidth: 120, objectFit: 'contain' }}
                 />
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--accent-gold)', fontWeight: 700 }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)', fontWeight: 700 }}>
                     Ready to show on live displays (Weight: {sponsorWeight}%)
                   </span>
                   {sponsorUrl && (
-                    <span style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--aa-primary, #8b5cf6)' }}>
                       Redirects to: {formatSponsorUrl(sponsorUrl)} ↗
                     </span>
                   )}
@@ -1004,11 +1160,12 @@ export default function ManagePanel({
                   style={{
                     padding: '3px 10px',
                     borderRadius: 12,
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    background: 'transparent',
-                    color: 'var(--accent-cyan)',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-secondary)',
                     fontSize: '0.74rem',
                     cursor: 'pointer',
+                    fontWeight: 600,
                   }}
                 >
                   + {p.name}
@@ -1022,14 +1179,14 @@ export default function ManagePanel({
                 disabled={sponsorLoading}
                 style={{
                   padding: '10px 28px',
-                  background: 'var(--accent-gold)',
-                  color: '#000',
+                  background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6) 0%, #6d28d9 100%)',
+                  color: '#ffffff',
                   border: 'none',
-                  borderRadius: 6,
+                  borderRadius: 8,
                   fontWeight: 800,
                   fontSize: '0.85rem',
                   cursor: 'pointer',
-                  boxShadow: 'var(--shadow-glow-gold)',
+                  boxShadow: '0 4px 14px rgba(139, 92, 246, 0.35)',
                 }}
               >
                 {sponsorLoading ? 'SAVING...' : (editingSponsorId ? '✓ UPDATE SPONSOR BANNER' : '+ ADD SPONSOR BANNER')}
@@ -1041,18 +1198,18 @@ export default function ManagePanel({
 
       {/* External Live Links - ALL 3 SCREENS */}
       <div style={{ marginBottom: 12 }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: 1, color: 'var(--accent-gold)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: 1, color: 'var(--text-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span>📺</span> REAL-TIME LIVE AUCTION SCREENS (ALL 3 MODES)
         </h3>
       </div>
 
       <div className="manage-panel__links" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {/* Link 1: Broadcast & OBS Overlay Link */}
-        <div className="manage-panel__link-row" style={{ background: 'rgba(245, 184, 0, 0.12)', border: '1px solid rgba(245, 184, 0, 0.35)', padding: '14px 18px', borderRadius: 8 }}>
+        <div className="manage-panel__link-row">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, color: 'var(--accent-gold)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, color: 'var(--text-primary)' }}>
               <span>📺</span> 1) BROADCAST & OBS OVERLAY LINK
-              <span style={{ fontSize: '0.7rem', background: 'rgba(245, 184, 0, 0.25)', color: 'var(--accent-gold)', padding: '2px 8px', borderRadius: 4 }}>
+              <span style={{ fontSize: '0.7rem', background: 'rgba(139, 92, 246, 0.14)', color: 'var(--aa-primary, #8b5cf6)', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
                 TRANSPARENT BACKGROUND
               </span>
             </span>
@@ -1074,10 +1231,11 @@ export default function ManagePanel({
               style={{
                 color: 'var(--text-primary)',
                 textDecoration: 'none',
-                padding: '6px 12px',
-                background: 'rgba(255,255,255,0.12)',
-                borderRadius: 4,
-                fontSize: '0.8rem',
+                padding: '6px 14px',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 6,
+                fontSize: '0.78rem',
                 fontWeight: 700,
               }}
             >
@@ -1087,11 +1245,11 @@ export default function ManagePanel({
         </div>
 
         {/* Link 2: Public Live Screen */}
-        <div className="manage-panel__link-row" style={{ background: 'rgba(74, 222, 128, 0.1)', border: '1px solid rgba(74, 222, 128, 0.35)', padding: '14px 18px', borderRadius: 8 }}>
+        <div className="manage-panel__link-row">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, color: '#4ade80' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, color: 'var(--text-primary)' }}>
               <span>🌐</span> 2) PUBLIC LIVE SCREEN
-              <span style={{ fontSize: '0.7rem', background: 'rgba(74, 222, 128, 0.25)', color: '#4ade80', padding: '2px 8px', borderRadius: 4 }}>
+              <span style={{ fontSize: '0.7rem', background: 'rgba(2, 132, 199, 0.14)', color: 'var(--aa-secondary, #0284c7)', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
                 FANS & SPECTATOR PORTAL
               </span>
             </span>
@@ -1113,10 +1271,11 @@ export default function ManagePanel({
               style={{
                 color: 'var(--text-primary)',
                 textDecoration: 'none',
-                padding: '6px 12px',
-                background: 'rgba(255,255,255,0.12)',
-                borderRadius: 4,
-                fontSize: '0.8rem',
+                padding: '6px 14px',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 6,
+                fontSize: '0.78rem',
                 fontWeight: 700,
               }}
             >
@@ -1126,11 +1285,11 @@ export default function ManagePanel({
         </div>
 
         {/* Link 3: Projector / Overlay View */}
-        <div className="manage-panel__link-row" style={{ background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.35)', padding: '14px 18px', borderRadius: 8 }}>
+        <div className="manage-panel__link-row">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, color: '#c084fc' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, color: 'var(--text-primary)' }}>
               <span>📽️</span> 3) PROJECTOR / OVERLAY VIEW
-              <span style={{ fontSize: '0.7rem', background: 'rgba(168, 85, 247, 0.25)', color: '#c084fc', padding: '2px 8px', borderRadius: 4 }}>
+              <span style={{ fontSize: '0.7rem', background: 'rgba(139, 92, 246, 0.14)', color: 'var(--aa-primary, #8b5cf6)', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
                 AUDITORIUM & STAGE LED WALLS
               </span>
             </span>
@@ -1152,10 +1311,11 @@ export default function ManagePanel({
               style={{
                 color: 'var(--text-primary)',
                 textDecoration: 'none',
-                padding: '6px 12px',
-                background: 'rgba(255,255,255,0.12)',
-                borderRadius: 4,
-                fontSize: '0.8rem',
+                padding: '6px 14px',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 6,
+                fontSize: '0.78rem',
                 fontWeight: 700,
               }}
             >
@@ -1165,18 +1325,12 @@ export default function ManagePanel({
         </div>
 
         {/* Dashboard Link */}
-        <div className="manage-panel__link-row" style={{ background: 'var(--bg-tertiary)' }}>
-          <span>RETURN TO USER DASHBOARD</span>
+        <div className="manage-panel__link-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>RETURN TO USER DASHBOARD</span>
           <Link
             href="/dashboard"
-            style={{
-              color: 'var(--text-primary)',
-              textDecoration: 'none',
-              padding: '4px 8px',
-              background: 'rgba(255,255,255,0.1)',
-              borderRadius: 4,
-              fontSize: '0.8rem',
-            }}
+            className="manage-panel__link-copy"
+            style={{ textDecoration: 'none' }}
           >
             DASHBOARD ↗
           </Link>

@@ -194,46 +194,101 @@ export default function PlayerList({ tournament, onRefresh }) {
   return (
     <div className="player-list">
       {/* Filter controls */}
-      <div className="player-list__filters">
-        <button
-          className={`player-list__filter-btn player-list__filter-btn--all ${statusFilter === 'all' ? 'active' : ''}`}
-          onClick={() => setStatusFilter('all')}
-        >
-          ALL ({players.length})
-        </button>
-        <button
-          className={`player-list__filter-btn player-list__filter-btn--available ${statusFilter === 'available' ? 'active' : ''}`}
-          onClick={() => setStatusFilter('available')}
-        >
-          AVAILABLE ({players.filter(p => p.status === 'available').length})
-        </button>
-        <button
-          className={`player-list__filter-btn player-list__filter-btn--sold ${statusFilter === 'sold' ? 'active' : ''}`}
-          onClick={() => setStatusFilter('sold')}
-        >
-          SOLD ({players.filter(p => p.status === 'sold').length})
-        </button>
-        <button
-          className={`player-list__filter-btn player-list__filter-btn--unsold ${statusFilter === 'unsold' ? 'active' : ''}`}
-          onClick={() => setStatusFilter('unsold')}
-        >
-          UNSOLD ({players.filter(p => p.status === 'unsold').length})
-        </button>
-
-        <button
-          className="player-list__filter-btn"
-          onClick={handleExportCSV}
-          style={{ marginLeft: 'auto', background: 'var(--accent-purple)', color: '#fff' }}
-        >
-          <span className="material-symbols-outlined icon-18" style={{ marginRight: 4, verticalAlign: 'middle' }}>download</span>
-          CSV REPORT
-        </button>
+      <div className="player-list__filters" style={{
+        background: 'var(--aa-surface-container, rgba(27, 31, 49, 0.8))',
+        backdropFilter: 'blur(16px)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 14,
+        padding: '12px 18px',
+        marginBottom: 20,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <button
+            className={`player-list__filter-btn player-list__filter-btn--all ${statusFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('all')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 20,
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: '1px solid',
+              borderColor: statusFilter === 'all' ? 'var(--aa-primary)' : 'var(--border-subtle)',
+              background: statusFilter === 'all' ? 'var(--aa-primary-container, #8b5cf6)' : 'var(--bg-tertiary)',
+              color: statusFilter === 'all' ? '#fff' : 'var(--text-secondary)',
+            }}
+          >
+            ALL ({players.length})
+          </button>
+          <button
+            className={`player-list__filter-btn player-list__filter-btn--available ${statusFilter === 'available' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('available')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 20,
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: '1px solid',
+              borderColor: statusFilter === 'available' ? 'var(--aa-secondary)' : 'var(--border-subtle)',
+              background: statusFilter === 'available' ? 'rgba(76, 215, 246, 0.2)' : 'var(--bg-tertiary)',
+              color: statusFilter === 'available' ? 'var(--aa-secondary)' : 'var(--text-secondary)',
+            }}
+          >
+            AVAILABLE ({players.filter(p => p.status === 'available').length})
+          </button>
+          <button
+            className={`player-list__filter-btn player-list__filter-btn--sold ${statusFilter === 'sold' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('sold')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 20,
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: '1px solid',
+              borderColor: statusFilter === 'sold' ? 'var(--aa-tertiary)' : 'var(--border-subtle)',
+              background: statusFilter === 'sold' ? 'rgba(78, 222, 163, 0.2)' : 'var(--bg-tertiary)',
+              color: statusFilter === 'sold' ? 'var(--aa-tertiary)' : 'var(--text-secondary)',
+            }}
+          >
+            SOLD ({players.filter(p => p.status === 'sold').length})
+          </button>
+          <button
+            className={`player-list__filter-btn player-list__filter-btn--unsold ${statusFilter === 'unsold' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('unsold')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 20,
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: '1px solid',
+              borderColor: statusFilter === 'unsold' ? 'var(--accent-red)' : 'var(--border-subtle)',
+              background: statusFilter === 'unsold' ? 'rgba(239, 68, 68, 0.2)' : 'var(--bg-tertiary)',
+              color: statusFilter === 'unsold' ? 'var(--accent-red)' : 'var(--text-secondary)',
+            }}
+          >
+            UNSOLD ({players.filter(p => p.status === 'unsold').length})
+          </button>
+        </div>
 
         {/* Category dropdown */}
         <select
           className="player-list__filter-select"
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
+          style={{
+            height: 34,
+            padding: '0 12px',
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 8,
+            color: 'var(--text-primary)',
+            fontSize: '0.82rem',
+            cursor: 'pointer',
+          }}
         >
           <option value="all">ALL CATEGORIES</option>
           {categories.map((cat) => (
@@ -250,19 +305,45 @@ export default function PlayerList({ tournament, onRefresh }) {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{
-            height: 30,
-            padding: '0 12px',
-            background: 'rgba(255, 255, 255, 0.1)',
+            height: 34,
+            padding: '0 14px',
+            background: 'var(--aa-surface-lowest, #090d1f)',
             border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-pill)',
+            borderRadius: 8,
             color: 'var(--text-primary)',
-            fontSize: '0.8rem',
+            fontSize: '0.85rem',
             outline: 'none',
             minWidth: 180,
           }}
         />
 
-        <div className="player-list__count">
+        <button
+          className="player-list__filter-btn"
+          onClick={handleExportCSV}
+          style={{
+            marginLeft: 'auto',
+            background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+            color: '#fff',
+            height: 34,
+            padding: '0 16px',
+            borderRadius: 8,
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            boxShadow: '0 2px 10px rgba(2, 132, 199, 0.3)',
+          }}
+          title="Download full player roster and team sales as CSV"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>download</span>
+          <span>CSV REPORT</span>
+        </button>
+
+        <div className="player-list__count" style={{
+          fontSize: '0.78rem',
+          color: 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)',
+        }}>
           Showing {filteredPlayers.length} of {players.length}
         </div>
       </div>

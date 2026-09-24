@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import AuctionArena from '@/components/AuctionArena';
 import TeamSummary from '@/components/TeamSummary';
 import PlayerList from '@/components/PlayerList';
@@ -33,6 +34,17 @@ export default function ManagePage() {
       setRotationTick(t => t + 1);
     }, 1000);
     return () => clearInterval(ticker);
+  }, []);
+
+  // Support ?screen= URL query parameter (e.g. ?screen=M for Manage Panel)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const scr = params.get('screen');
+      if (scr && ['A', 'S', 'P', 'C', 'M'].includes(scr.toUpperCase())) {
+        setActiveScreen(scr.toUpperCase());
+      }
+    }
   }, []);
 
   const sponsors = tournament?.sponsors || [];
@@ -84,6 +96,10 @@ export default function ManagePage() {
   // Draw new player (random or by number)
   const drawPlayer = useCallback(async (playerNumber = null) => {
     if (!tournament) return;
+    if (tournament.status === 'completed') {
+      alert('Auction is completed and locked. Please reopen auction in Manage Panel first.');
+      return;
+    }
 
     let player = null;
     const activeCategory = auctionState?.activeCategory;
@@ -152,6 +168,10 @@ export default function ManagePage() {
   // Place bid for a team or assign fixed price
   const placeBid = useCallback((team, customBidAmount = null) => {
     if (!currentPlayer || stampType) return;
+    if (tournament?.status === 'completed') {
+      alert('Auction is completed and locked. Please reopen auction in Manage Panel first.');
+      return;
+    }
 
     // Check category player quota for team
     const category = tournament?.categories?.find(c => c.id === currentPlayer.categoryId);
@@ -202,7 +222,7 @@ export default function ManagePage() {
 
   // Increment bid without team (Up Arrow)
   const incrementBid = useCallback(() => {
-    if (!currentPlayer || stampType) return;
+    if (!currentPlayer || stampType || tournament?.status === 'completed') return;
     const next = computeNextBid(currentBid, tournament);
     setCurrentBid(next);
     syncServerAuctionState(next, currentTeam?.id || null);
@@ -224,6 +244,10 @@ export default function ManagePage() {
   // Sell player
   const sellPlayer = useCallback(async () => {
     if (!currentPlayer || !currentTeam) return;
+    if (tournament?.status === 'completed') {
+      alert('Auction is completed and locked. Please reopen auction in Manage Panel first.');
+      return;
+    }
 
     // Verify category quota
     const category = tournament?.categories?.find(c => c.id === currentPlayer.categoryId);
@@ -280,11 +304,15 @@ export default function ManagePage() {
     } catch (err) {
       console.error('Sell error:', err);
     }
-  }, [currentPlayer, currentTeam, currentBid, id, fetchTournament, auctionState]);
+  }, [currentPlayer, currentTeam, currentBid, id, fetchTournament, auctionState, tournament]);
 
   // Mark unsold
   const markUnsold = useCallback(async () => {
     if (!currentPlayer) return;
+    if (tournament?.status === 'completed') {
+      alert('Auction is completed and locked. Please reopen auction in Manage Panel first.');
+      return;
+    }
 
     try {
       if (currentPlayer.isJodi && currentPlayer.jodiPlayers) {
@@ -318,12 +346,16 @@ export default function ManagePage() {
     } catch (err) {
       console.error('Unsold error:', err);
     }
-  }, [currentPlayer, id, fetchTournament, auctionState]);
+  }, [currentPlayer, id, fetchTournament, auctionState, tournament]);
 
 
   // Re-auction player
   const reAuction = useCallback(async () => {
     if (!currentPlayer) return;
+    if (tournament?.status === 'completed') {
+      alert('Auction is completed and locked. Please reopen auction in Manage Panel first.');
+      return;
+    }
 
     try {
       const res = await fetch(`/api/tournaments/${id}/auction/re-auction`, {
@@ -344,7 +376,7 @@ export default function ManagePage() {
     } catch (err) {
       console.error('Re-auction error:', err);
     }
-  }, [currentPlayer, id, fetchTournament]);
+  }, [currentPlayer, id, fetchTournament, tournament]);
 
   // Compute guaranteed 100% unique shortcut keys for all teams (no duplicate keys ever)
   const teamHotkeys = useMemo(() => {
@@ -353,7 +385,7 @@ export default function ManagePage() {
 
   // Keyboard shortcuts
   useEffect(() => {
-    if (activeScreen !== 'A') return;
+    if (activeScreen !== 'A' || tournament?.status === 'completed') return;
 
     const handleKeyDown = (e) => {
       // Don't handle if typing in input
@@ -497,31 +529,96 @@ export default function ManagePage() {
 
       <div className="screen-container">
         {/* Header */}
-        <header className="auction-header">
-          <div className="auction-header__left">
+        <header className="auction-header" style={{
+          background: 'var(--aa-surface-container, rgba(27, 31, 49, 0.9))',
+          backdropFilter: 'blur(16px)',
+          borderBottom: '1px solid var(--border-subtle)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+        }}>
+          <div className="auction-header__left" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Link
+              href="/dashboard"
+              title="Return to Organizer Dashboard"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '6px 12px',
+                borderRadius: 8,
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-secondary)',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+              }}
+            >
+              ← Dashboard
+            </Link>
             {tournament.logo ? (
-              <img src={tournament.logo} alt="Logo" className="auction-header__logo" />
+              <img src={tournament.logo} alt="Logo" className="auction-header__logo" style={{ borderRadius: 8 }} />
             ) : (
               <div className="auction-header__logo" style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.7rem', fontWeight: 700, textAlign: 'center',
-                color: 'var(--text-muted)', border: '1px solid var(--border-subtle)',
+                fontSize: '0.75rem', fontWeight: 800, textAlign: 'center',
+                color: 'var(--text-primary)', border: '1px solid var(--border-subtle)',
+                borderRadius: 8,
               }}>
                 {tournament.name.substring(0, 3)}
               </div>
             )}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: 'var(--aa-secondary)', fontWeight: 800, letterSpacing: '0.08em' }}>
+                {tournament.sportType ? `● ${tournament.sportType.toUpperCase()}` : '● CRICKET'}
+              </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                {tournament.status === 'completed' ? '🏁 FINISHED' : '🔴 LIVE ARENA'}
+              </span>
+            </div>
           </div>
 
           <div className="auction-header__center auction-header__title">
-            <h1>
+            <h1 style={{ fontFamily: 'var(--font-display)', letterSpacing: '0.04em' }}>
               {tournament.name}
               <br />
-              <span className="highlight-badge">PLAYERS</span>
+              <span className="highlight-badge" style={{
+                background: 'linear-gradient(135deg, var(--aa-primary), var(--aa-secondary))',
+                color: '#fff',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                padding: '2px 8px',
+                borderRadius: 4,
+                marginRight: 6,
+              }}>
+                PLAYERS
+              </span>
               AUCTION
             </h1>
           </div>
 
-          <div className="auction-header__right">
+          <div className="auction-header__right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Link
+              href={`/live/${id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 12px',
+                borderRadius: 20,
+                background: 'rgba(76, 215, 246, 0.12)',
+                border: '1px solid var(--aa-secondary)',
+                color: 'var(--aa-secondary)',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+              }}
+              title="Open Public Live Spectator Screen in New Tab"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>live_tv</span>
+              <span>Spectator Screen</span>
+            </Link>
             {currentSponsor ? (() => {
               const sponsorLink = formatSponsorUrl(currentSponsor.url);
               const content = (

@@ -61,27 +61,42 @@ export default function CategorySwitcher({ tournament, auctionState, onSwitch, o
   };
 
   return (
-    <div className="category-switcher">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h2 className="category-switcher__title" style={{ margin: 0 }}>
-          CHOOSE CATEGORY FOR AUCTION
+    <div className="category-switcher" style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 20px' }}>
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <h2 className="category-switcher__title" style={{ margin: '0 0 6px', letterSpacing: '0.06em', color: 'var(--text-primary)' }}>
+          AUCTION CATEGORY ROSTER
         </h2>
         <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          Click category to filter auction pool • Click ⚙️ to update minimum points
+          Select active category to filter bidding stage pool • Click ⚙️ to adjust base price
         </div>
       </div>
 
-      <div className="category-switcher__grid">
+      <div className="category-switcher__grid" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: 16,
+      }}>
         {/* All Categories Button */}
         <button
           className={`category-switcher__btn ${!activeCategoryId ? 'active' : ''}`}
           onClick={() => onSwitch(null)}
           title="All categories combined"
         >
-          <span>ALL CATEGORIES</span>
-          <span className="category-switcher__btn-avg">
-            {allStats.available} Available / {allStats.total} Total
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)', letterSpacing: '0.02em' }}>
+              ALL CATEGORIES
+            </span>
+            {!activeCategoryId && (
+              <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: 10, background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)', color: '#fff', fontWeight: 800, letterSpacing: '0.5px' }}>
+                ACTIVE POOL
+              </span>
+            )}
+          </div>
+          <div style={{ marginTop: 'auto' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.84rem', color: 'var(--aa-secondary)', fontWeight: 600 }}>
+              {allStats.available} Available / {allStats.total} Total Players
+            </span>
+          </div>
         </button>
 
         {/* Individual Category Buttons */}
@@ -92,45 +107,42 @@ export default function CategorySwitcher({ tournament, auctionState, onSwitch, o
           return (
             <div
               key={cat.id}
-              style={{ position: 'relative', display: 'flex' }}
+              style={{ position: 'relative', display: 'flex', width: '100%' }}
             >
               <button
                 className={`category-switcher__btn ${isActive ? 'active' : ''}`}
                 onClick={() => onSwitch(cat.id)}
-                style={{ width: '100%', paddingRight: 40 }}
+                style={{ paddingRight: 56 }}
               >
-                <span>{cat.name.toUpperCase()}</span>
-                <span className="category-switcher__btn-avg">
-                  Min Base: ₹{cat.basePrice.toLocaleString()} • {stats.available} Available
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {cat.name.toUpperCase()}
+                  </span>
+                  {isActive && (
+                    <span style={{ fontSize: '0.68rem', padding: '3px 8px', borderRadius: 10, background: 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)', color: '#fff', fontWeight: 800, letterSpacing: '0.5px', flexShrink: 0 }}>
+                      ACTIVE
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 'auto' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', color: 'var(--accent-gold)', fontWeight: 800 }}>
+                    Base: ₹{cat.basePrice.toLocaleString()}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {stats.available} Available / {stats.total} Total
+                  </span>
+                </div>
               </button>
 
               {/* Quick Edit Min Points Button */}
               <button
                 type="button"
+                className="category-switcher__gear-btn"
                 onClick={(e) => {
                   e.stopPropagation();
                   setEditingCategory({ ...cat });
                 }}
                 title={`Edit ${cat.name} Minimum Points / Base Price`}
-                style={{
-                  position: 'absolute',
-                  right: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'rgba(255,255,255,0.12)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 6,
-                  color: 'var(--accent-gold)',
-                  padding: '6px 8px',
-                  cursor: 'pointer',
-                  fontSize: '0.85rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.2s',
-                  zIndex: 2,
-                }}
               >
                 ⚙️
               </button>
