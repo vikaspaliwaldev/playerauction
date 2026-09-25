@@ -22,33 +22,8 @@ export async function getAuthUser() {
   return verifyToken(token);
 }
 
-/**
- * Calculate team financial stats
- */
-export function calculateTeamStats(team, allTeams, tournament) {
-  const soldPlayers = team.sales || [];
-  const totalSpent = soldPlayers.reduce((sum, s) => sum + s.soldPrice, 0);
-  const balance = team.purse - totalSpent;
-  const playerCount = soldPlayers.length;
-  const remainingSlots = Math.max(0, tournament.minPlayers - playerCount);
-  
-  // Find the minimum base price across all categories for reserve calculation
-  const minBasePrice = tournament.categories?.length > 0
-    ? Math.min(...tournament.categories.map(c => c.basePrice))
-    : 100;
-  
-  const reservePoints = remainingSlots > 0 ? (remainingSlots - 1) * minBasePrice : 0;
-  const maxBid = Math.max(0, balance - reservePoints);
-
-  return {
-    balance,
-    playerCount,
-    totalSpent,
-    remainingSlots,
-    reservePoints,
-    maxBid,
-  };
-}
+import { calculateTeamStats, calculateTeamReserve } from './auctionRules';
+export { calculateTeamStats, calculateTeamReserve };
 
 /**
  * Format number with commas

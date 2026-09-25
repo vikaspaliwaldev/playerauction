@@ -5,8 +5,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -81,6 +82,7 @@ model Category {
   name         String
   basePrice    Int        @default(1000)
   maxPerTeam   Int?       // Maximum players any team can buy from this category (null or <=0 = unlimited)
+  minPerTeam   Int?       @default(0) // Minimum players any team MUST buy from this category (for reserve calculation)
   tournamentId String
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   sortOrder    Int        @default(0)

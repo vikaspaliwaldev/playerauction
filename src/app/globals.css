@@ -8387,5 +8387,82 @@ button, input, select, textarea {
 .primary-color { color: var(--aa-primary-light); }
 .danger-color { color: var(--aa-error); }
 
+/* ======================================
+   PRINT STYLES FOR OFFICIAL ROSTER EXPORT
+   ====================================== */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 
+  /* Hide navigation, tickers, controls, audio, and action buttons */
+  nav,
+  header,
+  .nav-dock,
+  .print-hide,
+  button,
+  .recent-sales-ticker,
+  .broadcast-overlay-hud {
+    display: none !important;
+  }
 
+  /* Ensure official roster and team summary sections are fully visible and nicely arranged */
+  #official-squad-rosters-section,
+  #team-summary-export-section,
+  #team-detail-export-section {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  #official-squad-rosters-section > div:last-child > div,
+  .team-summary-card,
+  .team-detail__player-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 20px !important;
+    box-shadow: none !important;
+  }
+}
+
+/* =================================================
+   THEME COMPATIBILITY: SELECT ALL BUTTON & ROSTER PLAYER NAMES
+   ================================================= */
+.category-select-all-btn {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid var(--border-subtle) !important;
+  transition: all 0.15s ease;
+}
+
+.category-select-all-btn:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-theme="light"] .category-select-all-btn {
+  color: #000000 !important;
+  background: rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid rgba(0, 0, 0, 0.18) !important;
+}
+
+[data-theme="light"] .category-select-all-btn:hover {
+  background: rgba(0, 0, 0, 0.1) !important;
+}
+
+.official-roster-player-name {
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .official-roster-player-name {
+  color: #000000 !important;
+}
+
+@media print {
+  .official-roster-player-name {
+    color: #000000 !important;
+  }
+}

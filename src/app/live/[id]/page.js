@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { getActiveSponsor, formatSponsorUrl } from '@/lib/sponsorRotation';
+import { calculateTeamStats, getTeamSlots } from '@/lib/auctionRules';
+import OfficialSquadRosters from '@/components/OfficialSquadRosters';
 
 function LiveSpectatorContent() {
   const { id } = useParams();
@@ -77,26 +79,56 @@ function LiveSpectatorContent() {
       .slice(0, 8);
   }, [players]);
 
-  // Team summary calculations
+  const [spectatorTab, setSpectatorTab] = useState('all'); // 'all' | 'squads' | 'arena'
+
+  // Team summary calculations including slots and category reserve
   const teamStats = useMemo(() => {
     return teams.map(team => {
-      const sales = team.sales || [];
-      const spent = sales.reduce((sum, s) => sum + s.soldPrice, 0);
-      const balance = team.purse - spent;
+      const stats = calculateTeamStats(team, teams, tournament, currentPlayer?.categoryId);
+      const slots = getTeamSlots(team, tournament);
       return {
         ...team,
-        spent,
-        balance,
-        playerCount: sales.length,
+        ...stats,
+        slots,
       };
     });
-  }, [teams]);
+  }, [teams, tournament, currentPlayer]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
     } else {
       document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  const [isExportingImage, setIsExportingImage] = useState(false);
+
+  const handleDownloadImage = async () => {
+    try {
+      setIsExportingImage(true);
+      const section = document.getElementById('official-squad-rosters-section');
+      if (!section) return;
+
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(section, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        ignoreElements: (el) => el.classList?.contains('print-hide'),
+      });
+
+      const link = document.createElement('a');
+      link.download = `${(tournament?.name || 'Tournament').replace(/\s+/g, '_')}_Team_Rosters.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.error('Failed to export image:', err);
+      window.print();
+    } finally {
+      setIsExportingImage(false);
     }
   };
 
@@ -919,6 +951,58 @@ function LiveSpectatorContent() {
             );
           })()}
 
+          {/* Spectator View Tabs */}
+          <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: 3, gap: 4 }}>
+            <button
+              type="button"
+              onClick={() => setSpectatorTab('all')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 8,
+                border: 'none',
+                background: spectatorTab === 'all' ? 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)' : 'transparent',
+                color: spectatorTab === 'all' ? '#fff' : 'var(--text-muted)',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              ⚡ ARENA & SQUADS
+            </button>
+            <button
+              type="button"
+              onClick={() => setSpectatorTab('squads')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 8,
+                border: 'none',
+                background: spectatorTab === 'squads' ? 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)' : 'transparent',
+                color: spectatorTab === 'squads' ? '#fff' : 'var(--text-muted)',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              🛡️ TEAM SQUADS ({tournament.teams?.length || 0})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSpectatorTab('arena')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 8,
+                border: 'none',
+                background: spectatorTab === 'arena' ? 'linear-gradient(135deg, var(--aa-primary, #8b5cf6), #6d28d9)' : 'transparent',
+                color: spectatorTab === 'arena' ? '#fff' : 'var(--text-muted)',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              🎯 LIVE BID STAGE
+            </button>
+          </div>
+
           <button
             onClick={toggleFullscreen}
             style={{
@@ -938,321 +1022,273 @@ function LiveSpectatorContent() {
 
       {/* Main Content Layout */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 340px',
-        gap: 24,
-        padding: '24px 32px',
         maxWidth: 1600,
         margin: '0 auto',
+        padding: '24px 32px',
         position: 'relative',
         zIndex: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 28,
       }}>
-        {/* Left Column: Live Arena */}
-        <div>
-          {currentPlayer ? (
-            <div style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-gold)',
-              borderRadius: 18,
-              padding: 28,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-            }}>
-              {/* Head-to-Head 3-column layout */}
+        {/* SECTION 1: LIVE ARENA & CURRENT BID STAGE */}
+        {(spectatorTab === 'all' || spectatorTab === 'arena') && (
+          <div>
+            {currentPlayer ? (
               <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 24,
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-gold)',
+                borderRadius: 18,
+                padding: '24px 32px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
               }}>
-                {/* Left: Player Avatar (200px x 240px) */}
                 <div style={{
-                  position: 'relative',
-                  width: 200,
-                  height: 240,
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '3px solid var(--accent-gold)',
-                  boxShadow: 'var(--shadow-glow-gold)',
-                  flexShrink: 0,
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  justifyContent: 'space-between',
+                  gap: 24,
+                  flexWrap: 'wrap',
                 }}>
-                  {currentPlayer.photo ? (
-                    <img
-                      src={currentPlayer.photo}
-                      alt={currentPlayer.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <div style={{ fontSize: '4rem', opacity: 0.3 }}>
-                      👤
-                    </div>
-                  )}
+                  {/* Left: Player Avatar */}
                   <div style={{
-                    position: 'absolute',
-                    top: 8,
-                    left: 8,
-                    background: 'var(--accent-green)',
-                    color: '#fff',
-                    borderRadius: '50%',
-                    width: 36,
-                    height: 36,
+                    position: 'relative',
+                    width: 190,
+                    height: 230,
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '3px solid var(--accent-gold)',
+                    boxShadow: 'var(--shadow-glow-gold)',
+                    flexShrink: 0,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontWeight: 800,
+                    margin: '0 auto',
                   }}>
-                    #{currentPlayer.playerNumber}
-                  </div>
-                  <div style={{
-                    position: 'absolute',
-                    bottom: 0, left: 0, right: 0,
-                    background: 'var(--accent-gold)', color: '#000',
-                    fontSize: '0.68rem', fontWeight: 900, textAlign: 'center', padding: '3px 0', letterSpacing: 1,
-                  }}>
-                    PLAYER
-                  </div>
-                </div>
-
-                {/* Center: Details & Live Bid Amount */}
-                <div style={{ flex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{
-                    display: 'inline-block',
-                    padding: '4px 12px',
-                    borderRadius: 20,
-                    background: 'rgba(245, 184, 0, 0.15)',
-                    color: 'var(--accent-gold)',
-                    fontWeight: 700,
-                    fontSize: '0.85rem',
-                    marginBottom: 8,
-                  }}>
-                    {currentPlayer.category?.name || 'Category'} • BASE ₹{(currentPlayer.category?.basePrice || 1000).toLocaleString()}
-                  </div>
-
-                  <h2 style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '2.5rem',
-                    fontWeight: 800,
-                    margin: '0 0 8px',
-                    textTransform: 'uppercase',
-                    letterSpacing: 1,
-                  }}>
-                    {currentPlayer.name}
-                  </h2>
-
-                  <div style={{ display: 'flex', gap: 16, marginBottom: 16, color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-                    {currentPlayer.role && <span>Role: <strong style={{ color: '#fff' }}>{currentPlayer.role}</strong></span>}
-                    {currentPlayer.battingStyle && <span>Batting: <strong style={{ color: '#fff' }}>{currentPlayer.battingStyle}</strong></span>}
-                    {currentPlayer.age && <span>Age: <strong style={{ color: '#fff' }}>{currentPlayer.age}</strong></span>}
-                  </div>
-
-                  {/* Current Bid Display */}
-                  <div style={{
-                    background: 'rgba(0, 0, 0, 0.5)',
-                    border: '1px solid var(--border-gold)',
-                    borderRadius: 14,
-                    padding: '14px 28px',
-                    minWidth: 240,
-                    boxShadow: 'var(--shadow-glow-gold)',
-                  }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>
-                      {leadingTeam ? 'CURRENT HIGHEST BID' : 'STARTING BASE PRICE'}
-                    </div>
+                    {currentPlayer.photo ? (
+                      <img
+                        src={currentPlayer.photo}
+                        alt={currentPlayer.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div style={{ fontSize: '4rem', opacity: 0.3 }}>👤</div>
+                    )}
                     <div style={{
-                      fontFamily: 'var(--font-display)',
-                      fontSize: '2.8rem',
-                      fontWeight: 900,
-                      color: 'var(--accent-gold)',
-                      lineHeight: 1,
-                      marginTop: 4,
-                      textShadow: 'var(--shadow-glow-gold)',
-                    }}>
-                      ₹{liveBid.toLocaleString('en-IN')}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right: Leading Team Logo / Avatar (EXACT SAME 200px x 240px SIZE) */}
-                <div style={{
-                  position: 'relative',
-                  width: 200,
-                  height: 240,
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                  background: 'var(--bg-card)',
-                  border: `3px solid ${leadingTeam?.color || 'var(--border-subtle)'}`,
-                  boxShadow: leadingTeam ? `0 0 25px ${leadingTeam.color || 'var(--accent-gold)'}55` : 'none',
-                  flexShrink: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '16px 12px 28px',
-                  textAlign: 'center',
-                }}>
-                  {leadingTeam ? (
-                    <>
-                      <div style={{
-                        width: 80, height: 80, borderRadius: 8, overflow: 'hidden',
-                        background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        marginBottom: 8, border: '1px solid rgba(255,255,255,0.1)',
-                      }}>
-                        {leadingTeam.logo ? (
-                          <img src={leadingTeam.logo} alt={leadingTeam.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        ) : (
-                          <div style={{ width: '100%', height: '100%', background: leadingTeam.color || 'var(--accent-purple)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: '1.6rem' }}>
-                            {leadingTeam.shortName}
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1rem', color: '#fff', textTransform: 'uppercase', marginBottom: 4, maxWidth: 175, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {leadingTeam.name}
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--accent-gold)', fontWeight: 700 }}>
-                        Purse: ₹{leadingTeam.purse?.toLocaleString('en-IN')}
-                      </div>
-                      <div style={{
-                        position: 'absolute', bottom: 0, left: 0, right: 0,
-                        background: leadingTeam.color || 'var(--accent-gold)', color: '#000',
-                        fontSize: '0.68rem', fontWeight: 900, textAlign: 'center', padding: '3px 0', letterSpacing: 1,
-                      }}>
-                        LEADING BIDDER
-                      </div>
-                    </>
-                  ) : (
-                    <div style={{ color: 'var(--text-muted)' }}>
-                      <div style={{ fontSize: '2.5rem', opacity: 0.35, marginBottom: 6 }}>🛡️</div>
-                      <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', fontWeight: 800 }}>
-                        WAITING FOR BID
-                      </div>
-                      <div style={{ fontSize: '0.72rem', opacity: 0.7, marginTop: 2 }}>
-                        No team bid placed yet
-                      </div>
-                      <div style={{
-                        position: 'absolute', bottom: 0, left: 0, right: 0,
-                        background: 'rgba(255,255,255,0.08)', color: 'var(--text-muted)',
-                        fontSize: '0.68rem', fontWeight: 800, textAlign: 'center', padding: '3px 0',
-                      }}>
-                        BIDDING TEAM
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 16,
-              padding: 60,
-              textAlign: 'center',
-            }}>
-              <div style={{ fontSize: '3rem', marginBottom: 16 }}>🏏</div>
-              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', marginBottom: 8 }}>
-                AUCTION IN PROGRESS
-              </h2>
-              <p style={{ color: 'var(--text-muted)' }}>
-                Waiting for the auctioneer to draw the next player to the block.
-              </p>
-            </div>
-          )}
-
-          {/* Recent Sales Ticker */}
-          <div style={{ marginTop: 24 }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-              RECENT SALES
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-              {recentSales.map(p => {
-                const team = teams.find(t => t.id === p.sale?.teamId);
-                return (
-                  <div key={p.id} style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 8,
-                    padding: 12,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                  }}>
-                    <div style={{
-                      width: 32,
-                      height: 32,
+                      position: 'absolute',
+                      top: 8,
+                      left: 8,
+                      background: 'var(--accent-green)',
+                      color: '#fff',
                       borderRadius: '50%',
-                      background: 'var(--accent-gold)',
-                      color: '#000',
+                      width: 36,
+                      height: 36,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontWeight: 800,
-                      fontSize: '0.8rem',
                     }}>
-                      #{p.playerNumber}
+                      #{currentPlayer.playerNumber}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {p.name}
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 0, left: 0, right: 0,
+                      background: 'var(--accent-gold)', color: '#000',
+                      fontSize: '0.68rem', fontWeight: 900, textAlign: 'center', padding: '3px 0', letterSpacing: 1,
+                    }}>
+                      ON THE BLOCK
+                    </div>
+                  </div>
+
+                  {/* Center: Details & Live Bid Amount */}
+                  <div style={{ flex: 1, minWidth: 280, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{
+                      display: 'inline-block',
+                      padding: '4px 14px',
+                      borderRadius: 20,
+                      background: 'rgba(245, 184, 0, 0.15)',
+                      color: 'var(--accent-gold)',
+                      fontWeight: 800,
+                      fontSize: '0.88rem',
+                      marginBottom: 8,
+                    }}>
+                      {currentPlayer.category?.name || 'Category'} • BASE ₹{(currentPlayer.category?.basePrice || 1000).toLocaleString('en-IN')}
+                    </div>
+
+                    <h2 style={{
+                      fontFamily: 'var(--font-display)',
+                      fontSize: '2.5rem',
+                      fontWeight: 900,
+                      margin: '0 0 6px',
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}>
+                      {currentPlayer.name}
+                    </h2>
+
+                    <div style={{ display: 'flex', gap: 16, marginBottom: 16, color: 'var(--text-secondary)', fontSize: '0.9rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                      {currentPlayer.battingStyle && <span>Batting: <strong style={{ color: '#fff' }}>{currentPlayer.battingStyle}</strong></span>}
+                      {currentPlayer.bowlingStyle && <span>Bowling: <strong style={{ color: '#fff' }}>{currentPlayer.bowlingStyle}</strong></span>}
+                      {currentPlayer.age && <span>Age: <strong style={{ color: '#fff' }}>{currentPlayer.age}</strong></span>}
+                    </div>
+
+                    {/* Current Bid Display */}
+                    <div style={{
+                      background: 'rgba(0, 0, 0, 0.6)',
+                      border: '2px solid var(--border-gold)',
+                      borderRadius: 14,
+                      padding: '12px 32px',
+                      minWidth: 260,
+                      boxShadow: 'var(--shadow-glow-gold)',
+                    }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 800 }}>
+                        {leadingTeam ? `HIGHEST BID BY ${leadingTeam.name.toUpperCase()}` : 'STARTING BASE PRICE'}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: team?.color || 'var(--text-muted)' }}>
-                        {team?.shortName} • ₹{(p.sale?.soldPrice || 0).toLocaleString()}
+                      <div style={{
+                        fontFamily: 'var(--font-display)',
+                        fontSize: '3rem',
+                        fontWeight: 900,
+                        color: 'var(--accent-gold)',
+                        lineHeight: 1.1,
+                        marginTop: 4,
+                        textShadow: '0 0 20px rgba(245, 184, 0, 0.6)',
+                      }}>
+                        ₹{liveBid.toLocaleString('en-IN')}
                       </div>
                     </div>
                   </div>
-                );
-              })}
-              {recentSales.length === 0 && (
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No players sold yet</div>
-              )}
-            </div>
-          </div>
-        </div>
 
-        {/* Right Column: Teams Purse & Squad Standings */}
-        <div style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 16,
-          padding: 20,
-          height: 'fit-content',
-        }}>
-          <h3 style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '1.1rem',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: 1,
-            marginBottom: 16,
-            paddingBottom: 8,
-            borderBottom: '1px solid var(--border-subtle)',
-          }}>
-            TEAM PURSES & SQUADS
-          </h3>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {teamStats.map(team => (
-              <div key={team.id} style={{
-                background: 'rgba(255,255,255,0.03)',
-                borderRadius: 8,
-                padding: 12,
-                borderLeft: `4px solid ${team.color || '#fff'}`,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{team.name}</span>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{team.playerCount} Players</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Purse Left:</span>
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-green)' }}>
-                    ₹{team.balance.toLocaleString()}
-                  </span>
+                  {/* Right: Leading Team Logo / Avatar */}
+                  <div style={{
+                    position: 'relative',
+                    width: 190,
+                    height: 230,
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    background: 'var(--bg-card)',
+                    border: `3px solid ${leadingTeam?.color || 'var(--border-subtle)'}`,
+                    boxShadow: leadingTeam ? `0 0 25px ${leadingTeam.color || 'var(--accent-gold)'}55` : 'none',
+                    flexShrink: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px 12px 28px',
+                    textAlign: 'center',
+                    margin: '0 auto',
+                  }}>
+                    {leadingTeam ? (
+                      <>
+                        <div style={{
+                          width: 76, height: 76, borderRadius: 8, overflow: 'hidden',
+                          background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          marginBottom: 8, border: '1px solid rgba(255,255,255,0.1)',
+                        }}>
+                          {leadingTeam.logo ? (
+                            <img src={leadingTeam.logo} alt={leadingTeam.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                          ) : (
+                            <div style={{ width: '100%', height: '100%', background: leadingTeam.color || 'var(--accent-purple)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: '1.5rem' }}>
+                              {leadingTeam.shortName}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1rem', color: '#fff', textTransform: 'uppercase', marginBottom: 4, maxWidth: 165, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {leadingTeam.name}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--accent-gold)', fontWeight: 700 }}>
+                          Purse: ₹{leadingTeam.purse?.toLocaleString('en-IN')}
+                        </div>
+                        <div style={{
+                          position: 'absolute', bottom: 0, left: 0, right: 0,
+                          background: leadingTeam.color || 'var(--accent-gold)', color: '#000',
+                          fontSize: '0.68rem', fontWeight: 900, textAlign: 'center', padding: '3px 0', letterSpacing: 1,
+                        }}>
+                          LEADING BIDDER
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ color: 'var(--text-muted)' }}>
+                        <div style={{ fontSize: '2.5rem', opacity: 0.35, marginBottom: 6 }}>🛡️</div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', fontWeight: 800 }}>
+                          WAITING FOR BID
+                        </div>
+                        <div style={{ fontSize: '0.72rem', opacity: 0.7, marginTop: 2 }}>
+                          No team bid placed yet
+                        </div>
+                        <div style={{
+                          position: 'absolute', bottom: 0, left: 0, right: 0,
+                          background: 'rgba(255,255,255,0.08)', color: 'var(--text-muted)',
+                          fontSize: '0.68rem', fontWeight: 800, textAlign: 'center', padding: '3px 0',
+                        }}>
+                          BIDDING TEAM
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))}
+            ) : (
+              <div style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 16,
+                padding: '36px 20px',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: 10 }}>🏏</div>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', margin: '0 0 6px' }}>
+                  AUCTION IN PROGRESS
+                </h2>
+                <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem' }}>
+                  Waiting for the auctioneer to draw the next player to the block. All team rosters and purse balances update below in real-time.
+                </p>
+              </div>
+            )}
+
+            {/* Recent Sales Ticker Bar */}
+            {recentSales.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflowX: 'auto', paddingBottom: 6 }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: 1, color: 'var(--accent-gold)', textTransform: 'uppercase', flexShrink: 0 }}>
+                    RECENT SALES:
+                  </span>
+                  {recentSales.slice(0, 6).map(p => {
+                    const team = teams.find(t => t.id === p.sale?.teamId);
+                    return (
+                      <div key={p.id} style={{
+                        background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: 20,
+                        padding: '3px 10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        flexShrink: 0,
+                        fontSize: '0.78rem',
+                      }}>
+                        <span style={{ fontWeight: 800, color: '#fff' }}>#{p.playerNumber} {p.name}</span>
+                        <span style={{ color: team?.color || 'var(--accent-gold)', fontWeight: 700 }}>
+                          ➔ {team?.shortName} (₹{(p.sale?.soldPrice || 0).toLocaleString('en-IN')})
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        )}
+
+        {/* SECTION 2: THE OFFICIAL TEAM SQUAD BOXES (Change 3) */}
+        {(spectatorTab === 'all' || spectatorTab === 'squads') && (
+          <OfficialSquadRosters
+            tournament={tournament}
+            teams={teamStats}
+            onDownloadPDF={() => window.print()}
+            onDownloadImage={handleDownloadImage}
+            isExportingImage={isExportingImage}
+          />
+        )}
       </div>
     </div>
   );

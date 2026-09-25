@@ -140,3 +140,203 @@ export function isTeamCategoryQuotaReached(team, categoryId, tournament) {
   const count = getTeamCategoryCount(team, categoryId, tournament);
   return count >= category.maxPerTeam;
 }
+
+/**
+ * Calculate team's category-based minimum reserve balance.
+ * 
+ * If hypotheticalCategoryId is provided, calculates the reserve balance
+ * AFTER acquiring 1 player of that category (used for calculating maxBid on a specific player).
+ */
+export function calculateTeamReserve(team, tournament, hypotheticalCategoryId = null) {
+  if (!tournament || !team) {
+    return { categoryReserve: 0, extraReserve: 0, totalReserve: 0, categoryNeeds: [], totalCategoryNeeded: 0 };
+  }
+
+  const sales = team.sales || [];
+  const currentTotalPlayers = sales.length + (hypotheticalCategoryId ? 1 : 0);
+
+  const categories = tournament.categories || [];
+  const minBasePrice = categories.length > 0 
+    ? Math.min(...categories.map(c => Number(c.basePrice) || 0))
+    : 100;
+
+  let categoryReserve = 0;
+  let totalCategoryNeeded = 0;
+  const categoryNeeds = [];
+
+  for (const cat of categories) {
+    const minRequired = Number(cat.minPerTeam) || 0;
+    let owned = sales.filter(s => {
+      const p = tournament.players?.find(pl => pl.id === s.playerId) || s.player;
+      return p?.categoryId === cat.id;
+    }).length;
+
+    if (hypotheticalCategoryId && hypotheticalCategoryId === cat.id) {
+      owned += 1;
+    }
+
+    const needed = Math.max(0, minRequired - owned);
+    const cost = needed * (Number(cat.basePrice) || 0);
+    categoryReserve += cost;
+    totalCategoryNeeded += needed;
+
+    categoryNeeds.push({
+      categoryId: cat.id,
+      categoryName: cat.name,
+      basePrice: Number(cat.basePrice) || 0,
+      minRequired,
+      owned,
+      needed,
+      cost,
+    });
+  }
+
+  // Check overall tournament minPlayers requirement
+  const minTournamentPlayers = Number(tournament.minPlayers) || 0;
+  const remainingTotalSlots = Math.max(0, minTournamentPlayers - currentTotalPlayers);
+  const extraSlots = Math.max(0, remainingTotalSlots - totalCategoryNeeded);
+  const extraReserve = extraSlots * minBasePrice;
+
+  const totalReserve = categoryReserve + extraReserve;
+
+  return {
+    categoryReserve,
+    extraReserve,
+    totalReserve,
+    categoryNeeds,
+    totalCategoryNeeded,
+  };
+}
+
+/**
+ * Calculate team financial stats including category minimum reserve and max allowed bid
+ */
+export function calculateTeamStats(team, allTeams, tournament, currentPlayerCategoryId = null) {
+  if (!team) {
+    return { balance: 0, playerCount: 0, totalSpent: 0, remainingSlots: 0, reservePoints: 0, maxBid: 0, categoryNeeds: [] };
+  }
+  const soldPlayers = team.sales || [];
+  const totalSpent = soldPlayers.reduce((sum, s) => sum + (s.soldPrice || 0), 0);
+  const balance = (Number(team.purse) || 0) - totalSpent;
+  const playerCount = soldPlayers.length;
+  const minPlayers = Number(tournament?.minPlayers) || 0;
+  const remainingSlots = Math.max(0, minPlayers - playerCount);
+  
+  // Calculate current minimum reserve balance required for remaining category quotas and slots
+  const currentReserve = calculateTeamReserve(team, tournament, null);
+  const reservePoints = currentReserve.totalReserve;
+
+  // Calculate reserve required AFTER acquiring current player on the block
+  let reserveAfterWin = reservePoints;
+  if (currentPlayerCategoryId) {
+    reserveAfterWin = calculateTeamReserve(team, tournament, currentPlayerCategoryId).totalReserve;
+  }
+
+  const maxBid = Math.max(0, balance - reserveAfterWin);
+
+  return {
+    balance,
+    playerCount,
+    totalSpent,
+    remainingSlots,
+    reservePoints, // Minimum reserve balance of the team
+    maxBid,
+    categoryNeeds: currentReserve.categoryNeeds,
+  };
+}
+
+/**
+ * Generates an array of player slots for a team up to tournament.maxPlayers.
+ * Organizes slots by category quotas and maps sold players to their respective category rows.
+ * Shows winning bid price and category indicators for each slot.
+ */
+export function getTeamSlots(team, tournament) {
+  const maxPlayers = Math.max(1, Number(tournament?.maxPlayers) || 15);
+  const categories = tournament?.categories || [];
+  const sales = team?.sales || [];
+
+  // Build the expected category slots blueprint
+  const slotsBlueprint = [];
+  categories.forEach(cat => {
+    const minReq = Number(cat.minPerTeam) || 0;
+    for (let i = 0; i < minReq; i++) {
+      if (slotsBlueprint.length < maxPlayers) {
+        slotsBlueprint.push({
+          categoryId: cat.id,
+          categoryName: cat.name,
+          basePrice: cat.basePrice,
+          isMandatory: true,
+        });
+      }
+    }
+  });
+
+  // Fill any remaining slots up to maxPlayers as Open / Flex slots
+  while (slotsBlueprint.length < maxPlayers) {
+    slotsBlueprint.push({
+      categoryId: null,
+      categoryName: 'Open Slot',
+      basePrice: null,
+      isMandatory: false,
+    });
+  }
+
+  // Resolve sold players
+  const soldPlayers = sales.map(s => {
+    const pl = tournament?.players?.find(p => p.id === s.playerId) || s.player || {};
+    const cat = categories.find(c => c.id === pl.categoryId) || pl.category;
+    return {
+      saleId: s.id,
+      soldPrice: s.soldPrice,
+      soldAt: s.createdAt,
+      player: {
+        ...pl,
+        category: cat,
+      },
+    };
+  });
+
+  // Initialize slots
+  const finalSlots = slotsBlueprint.map((bp, idx) => ({
+    slotNumber: idx + 1,
+    categoryId: bp.categoryId,
+    categoryName: bp.categoryName,
+    basePrice: bp.basePrice,
+    isMandatory: bp.isMandatory,
+    filled: false,
+    player: null,
+    soldPrice: null,
+  }));
+
+  const unassigned = [...soldPlayers];
+
+  // Pass 1: Assign sold players to their designated category slots
+  for (const slot of finalSlots) {
+    if (slot.categoryId) {
+      const matchIdx = unassigned.findIndex(item => item.player?.categoryId === slot.categoryId);
+      if (matchIdx !== -1) {
+        const item = unassigned.splice(matchIdx, 1)[0];
+        slot.filled = true;
+        slot.player = item.player;
+        slot.soldPrice = item.soldPrice;
+      }
+    }
+  }
+
+  // Pass 2: Assign any remaining sold players to available unfilled slots
+  for (const slot of finalSlots) {
+    if (!slot.filled && unassigned.length > 0) {
+      const item = unassigned.shift();
+      slot.filled = true;
+      slot.player = item.player;
+      slot.soldPrice = item.soldPrice;
+      if (!slot.categoryId && item.player?.category) {
+        slot.categoryName = item.player.category.name;
+      }
+    }
+  }
+
+  return finalSlots;
+}
+
+

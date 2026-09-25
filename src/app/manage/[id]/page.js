@@ -10,7 +10,7 @@ import CategorySwitcher from '@/components/CategorySwitcher';
 import ManagePanel from '@/components/ManagePanel';
 import NavigationDock from '@/components/NavigationDock';
 import SetupPanel from '@/components/SetupPanel';
-import { computeNextBid, getBidIncrement, resolveUniqueTeamHotkeys, isTeamCategoryQuotaReached } from '@/lib/auctionRules';
+import { computeNextBid, getBidIncrement, resolveUniqueTeamHotkeys, isTeamCategoryQuotaReached, calculateTeamStats } from '@/lib/auctionRules';
 import { getActiveSponsor, formatSponsorUrl } from '@/lib/sponsorRotation';
 import { playBidSound, playSoldSound, playUnsoldSound, playDrawPlayerSound } from '@/lib/soundEffects';
 
@@ -76,24 +76,13 @@ export default function ManagePage() {
     fetchTournament();
   }, [fetchTournament]);
 
-  // Calculate team stats
+  // Calculate team stats (using category-based minimum reserve logic)
   const getTeamStats = useCallback((team) => {
-    if (!tournament) return {};
-    const soldPlayers = team.sales || [];
-    const totalSpent = soldPlayers.reduce((sum, s) => sum + s.soldPrice, 0);
-    const balance = team.purse - totalSpent;
-    const playerCount = soldPlayers.length;
-    const remainingSlots = Math.max(0, tournament.minPlayers - playerCount);
-    const minBasePrice = tournament.categories?.length > 0
-      ? Math.min(...tournament.categories.map(c => c.basePrice))
-      : 100;
-    const reservePoints = remainingSlots > 0 ? (remainingSlots - 1) * minBasePrice : 0;
-    const maxBid = Math.max(0, balance - reservePoints);
+    if (!tournament || !team) return {};
+    return calculateTeamStats(team, tournament.teams, tournament, currentPlayer?.categoryId);
+  }, [tournament, currentPlayer]);
 
-    return { balance, playerCount, totalSpent, remainingSlots, reservePoints, maxBid };
-  }, [tournament]);
-
-  // Draw new player (random or by number)
+  // Draw new player (random or by number) supporting single, multiple, or all categories
   const drawPlayer = useCallback(async (playerNumber = null) => {
     if (!tournament) return;
     if (tournament.status === 'completed') {
@@ -103,17 +92,25 @@ export default function ManagePage() {
 
     let player = null;
     const activeCategory = auctionState?.activeCategory;
+    const activeCatIds = (activeCategory && activeCategory !== 'ALL')
+      ? activeCategory.split(',').filter(Boolean)
+      : [];
 
     if (playerNumber) {
       player = tournament.players.find(p => p.playerNumber === parseInt(playerNumber));
     } else {
       const availablePlayers = tournament.players.filter(p => {
         if (p.status !== 'available') return false;
-        if (activeCategory && p.categoryId !== activeCategory) return false;
+        if (activeCatIds.length > 0 && !activeCatIds.includes(p.categoryId)) return false;
         return true;
       });
 
-      if (availablePlayers.length === 0) return;
+      if (availablePlayers.length === 0) {
+        alert(activeCatIds.length > 0
+          ? 'No available players found in the selected category/categories.'
+          : 'No available players remaining in the auction pool.');
+        return;
+      }
 
       const selectionMode = auctionState?.selectionMode || 'random';
       if (selectionMode === 'random') {
@@ -184,7 +181,7 @@ export default function ManagePage() {
 
     if (customBidAmount !== null && customBidAmount > 0) {
       if (customBidAmount > stats.maxBid) {
-        alert(`Bid ₹${customBidAmount.toLocaleString()} exceeds ${team.name}'s max bid limit of ₹${stats.maxBid.toLocaleString()}`);
+        alert(`Bid ₹${customBidAmount.toLocaleString()} exceeds ${team.name}'s max bid limit of ₹${stats.maxBid.toLocaleString()} (Min Reserve Required: ₹${stats.reservePoints.toLocaleString()})`);
         return;
       }
       setCurrentBid(customBidAmount);
@@ -197,7 +194,10 @@ export default function ManagePage() {
     if (currentTeam?.id === team.id) {
       // Same team clicked again, increment
       const newBid = computeNextBid(currentBid, tournament);
-      if (newBid > stats.maxBid) return;
+      if (newBid > stats.maxBid) {
+        alert(`Cannot increase bid: ₹${newBid.toLocaleString()} exceeds ${team.name}'s max bid limit of ₹${stats.maxBid.toLocaleString()} (Min Reserve Required: ₹${stats.reservePoints.toLocaleString()})`);
+        return;
+      }
       setCurrentBid(newBid);
       syncServerAuctionState(newBid, team.id);
       playBidSound(!!auctionState?.fireworkAudio);
@@ -210,7 +210,7 @@ export default function ManagePage() {
         newBid = computeNextBid(currentBid, tournament);
       }
       if (newBid > stats.maxBid) {
-        alert(`Bid ₹${newBid.toLocaleString()} exceeds ${team.name}'s max bid limit of ₹${stats.maxBid.toLocaleString()}`);
+        alert(`Bid ₹${newBid.toLocaleString()} exceeds ${team.name}'s max bid limit of ₹${stats.maxBid.toLocaleString()} (Min Reserve Required: ₹${stats.reservePoints.toLocaleString()})`);
         return;
       }
       setCurrentBid(newBid);
@@ -256,55 +256,115 @@ export default function ManagePage() {
       return;
     }
 
+    // Verify minimum reserve balance
+    const stats = getTeamStats(currentTeam);
+    if (currentBid > stats.maxBid) {
+      alert(`Cannot sell: Winning bid of ₹${currentBid.toLocaleString()} exceeds ${currentTeam.name}'s max bid limit of ₹${stats.maxBid.toLocaleString()} (Must maintain ₹${stats.reservePoints.toLocaleString()} reserve for required category slots).`);
+      return;
+    }
+
+    // INSTANT OPTIMISTIC UI: Trigger stamp, sound, and local updates immediately with zero lag!
+    const soldPlayerObj = currentPlayer;
+    const soldTeamObj = currentTeam;
+    const soldBidAmt = currentBid;
+
+    setStampType('sold');
+    playSoldSound(!!auctionState?.fireworkAudio);
+
+    setCurrentPlayer(prev => prev ? {
+      ...prev,
+      status: 'sold',
+      teamId: soldTeamObj?.id,
+      sale: { soldPrice: soldBidAmt, teamId: soldTeamObj?.id, team: soldTeamObj },
+    } : null);
+    setCurrentTeam(null);
+    setCurrentBid(0);
+
+    // Optimistically update tournament state in memory
+    setTournament(prev => {
+      if (!prev) return prev;
+      const targetPlayerIds = (soldPlayerObj.isJodi && soldPlayerObj.jodiPlayers)
+        ? soldPlayerObj.jodiPlayers.map(p => p.id)
+        : [soldPlayerObj.id];
+
+      const splitPrice = targetPlayerIds.length > 1 ? Math.round(soldBidAmt / targetPlayerIds.length) : soldBidAmt;
+
+      const updatedPlayers = prev.players.map(p => {
+        if (targetPlayerIds.includes(p.id)) {
+          return {
+            ...p,
+            status: 'sold',
+            sale: { soldPrice: splitPrice, teamId: soldTeamObj.id, team: soldTeamObj },
+          };
+        }
+        return p;
+      });
+
+      const updatedTeams = prev.teams.map(t => {
+        if (t.id === soldTeamObj.id) {
+          const newSales = [...(t.sales || [])];
+          targetPlayerIds.forEach(pid => {
+            const matchedP = updatedPlayers.find(pl => pl.id === pid);
+            newSales.push({
+              id: `temp-${Date.now()}-${pid}`,
+              playerId: pid,
+              teamId: t.id,
+              soldPrice: splitPrice,
+              player: matchedP,
+            });
+          });
+          return { ...t, sales: newSales };
+        }
+        return t;
+      });
+
+      return { ...prev, players: updatedPlayers, teams: updatedTeams };
+    });
+
+    if (stampTimeoutRef.current) clearTimeout(stampTimeoutRef.current);
+    stampTimeoutRef.current = setTimeout(() => {
+      setStampType(null);
+    }, 1500);
+
     try {
-      if (currentPlayer.isJodi && currentPlayer.jodiPlayers) {
-        const splitPrice = Math.round(currentBid / 2);
-        for (const p of currentPlayer.jodiPlayers) {
-          await fetch(`/api/tournaments/${id}/auction/sold`, {
+      if (soldPlayerObj.isJodi && soldPlayerObj.jodiPlayers) {
+        const splitPrice = Math.round(soldBidAmt / 2);
+        await Promise.all(soldPlayerObj.jodiPlayers.map(p =>
+          fetch(`/api/tournaments/${id}/auction/sold`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               playerId: p.id,
-              teamId: currentTeam.id,
+              teamId: soldTeamObj.id,
               soldPrice: splitPrice,
             }),
-          });
-        }
+          })
+        ));
       } else {
-        await fetch(`/api/tournaments/${id}/auction/sold`, {
+        const res = await fetch(`/api/tournaments/${id}/auction/sold`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            playerId: currentPlayer.id,
-            teamId: currentTeam.id,
-            soldPrice: currentBid,
+            playerId: soldPlayerObj.id,
+            teamId: soldTeamObj.id,
+            soldPrice: soldBidAmt,
           }),
         });
+        if (!res.ok) {
+          const d = await res.json();
+          alert(d.error || 'Failed to complete sale');
+          await fetchTournament();
+          return;
+        }
       }
 
-      setStampType('sold');
-      playSoldSound(!!auctionState?.fireworkAudio);
-      const soldTeamObj = currentTeam;
-      const soldBidAmt = currentBid;
-      setCurrentPlayer(prev => prev ? {
-        ...prev,
-        status: 'sold',
-        teamId: soldTeamObj?.id,
-        sale: { soldPrice: soldBidAmt, teamId: soldTeamObj?.id, team: soldTeamObj },
-      } : null);
-      setCurrentTeam(null);
-      setCurrentBid(0);
-      if (stampTimeoutRef.current) clearTimeout(stampTimeoutRef.current);
-      stampTimeoutRef.current = setTimeout(() => {
-        setStampType(null);
-      }, 1500);
-
-      // Refresh data
-      await fetchTournament();
+      // Revalidate in background to sync database state
+      fetchTournament();
     } catch (err) {
       console.error('Sell error:', err);
+      fetchTournament();
     }
-  }, [currentPlayer, currentTeam, currentBid, id, fetchTournament, auctionState, tournament]);
+  }, [currentPlayer, currentTeam, currentBid, id, fetchTournament, auctionState, tournament, getTeamStats]);
 
   // Mark unsold
   const markUnsold = useCallback(async () => {
@@ -314,37 +374,60 @@ export default function ManagePage() {
       return;
     }
 
+    const unsoldPlayerObj = currentPlayer;
+
+    // INSTANT OPTIMISTIC UI: Trigger stamp, sound, and local updates immediately with zero lag!
+    setStampType('unsold');
+    playUnsoldSound(!!auctionState?.fireworkAudio);
+
+    setCurrentPlayer(prev => prev ? { ...prev, status: 'unsold' } : null);
+    setCurrentTeam(null);
+    setCurrentBid(0);
+
+    // Optimistically update tournament state in memory
+    setTournament(prev => {
+      if (!prev) return prev;
+      const targetPlayerIds = (unsoldPlayerObj.isJodi && unsoldPlayerObj.jodiPlayers)
+        ? unsoldPlayerObj.jodiPlayers.map(p => p.id)
+        : [unsoldPlayerObj.id];
+
+      const updatedPlayers = prev.players.map(p => {
+        if (targetPlayerIds.includes(p.id)) {
+          return { ...p, status: 'unsold' };
+        }
+        return p;
+      });
+
+      return { ...prev, players: updatedPlayers };
+    });
+
+    if (stampTimeoutRef.current) clearTimeout(stampTimeoutRef.current);
+    stampTimeoutRef.current = setTimeout(() => {
+      setStampType(null);
+    }, 1500);
+
     try {
-      if (currentPlayer.isJodi && currentPlayer.jodiPlayers) {
-        for (const p of currentPlayer.jodiPlayers) {
-          await fetch(`/api/tournaments/${id}/auction/unsold`, {
+      if (unsoldPlayerObj.isJodi && unsoldPlayerObj.jodiPlayers) {
+        await Promise.all(unsoldPlayerObj.jodiPlayers.map(p =>
+          fetch(`/api/tournaments/${id}/auction/unsold`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ playerId: p.id }),
-          });
-        }
+          })
+        ));
       } else {
         await fetch(`/api/tournaments/${id}/auction/unsold`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerId: currentPlayer.id }),
+          body: JSON.stringify({ playerId: unsoldPlayerObj.id }),
         });
       }
 
-      setStampType('unsold');
-      playUnsoldSound(!!auctionState?.fireworkAudio);
-      setCurrentPlayer(prev => prev ? { ...prev, status: 'unsold' } : null);
-      setCurrentTeam(null);
-      setCurrentBid(0);
-      if (stampTimeoutRef.current) clearTimeout(stampTimeoutRef.current);
-      stampTimeoutRef.current = setTimeout(() => {
-        setStampType(null);
-      }, 1500);
-
-      // Refresh data
-      await fetchTournament();
+      // Revalidate in background to sync database state
+      fetchTournament();
     } catch (err) {
       console.error('Unsold error:', err);
+      fetchTournament();
     }
   }, [currentPlayer, id, fetchTournament, auctionState, tournament]);
 
@@ -459,7 +542,7 @@ export default function ManagePage() {
     }
   }, [id, fetchTournament]);
 
-  const handleSwitchCategory = useCallback(async (categoryId) => {
+  const handleSwitchCategory = useCallback(async (categoryId, stayOnScreen = false) => {
     try {
       await fetch(`/api/tournaments/${id}/auction/state`, {
         method: 'PUT',
@@ -467,7 +550,9 @@ export default function ManagePage() {
         body: JSON.stringify({ activeCategory: categoryId }),
       });
       setAuctionState(prev => ({ ...prev, activeCategory: categoryId }));
-      setActiveScreen('A');
+      if (!stayOnScreen) {
+        setActiveScreen('A');
+      }
     } catch (err) {
       console.error('Category switch error:', err);
     }

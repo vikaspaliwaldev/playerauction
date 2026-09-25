@@ -12,7 +12,7 @@ export async function POST(request, { params }) {
     if (!tournament) return NextResponse.json({ error: 'Tournament not found' }, { status: 404 });
 
     const body = await request.json();
-    const { name, basePrice, sortOrder, maxPerTeam } = body;
+    const { name, basePrice, sortOrder, maxPerTeam, minPerTeam } = body;
 
     if (!name) {
       return NextResponse.json({ error: 'Category name is required' }, { status: 400 });
@@ -25,6 +25,7 @@ export async function POST(request, { params }) {
         name,
         basePrice: basePrice || 1000,
         maxPerTeam: (maxPerTeam && parseInt(maxPerTeam) > 0) ? parseInt(maxPerTeam) : null,
+        minPerTeam: (minPerTeam !== undefined && minPerTeam !== '' && parseInt(minPerTeam) >= 0) ? parseInt(minPerTeam) : 0,
         tournamentId: id,
         sortOrder: sortOrder ?? catCount,
       },
@@ -44,7 +45,7 @@ export async function PATCH(request, { params }) {
 
     const { id } = await params;
     const body = await request.json();
-    const { categoryId, name, basePrice, sortOrder, maxPerTeam } = body;
+    const { categoryId, name, basePrice, sortOrder, maxPerTeam, minPerTeam } = body;
 
     if (!categoryId) {
       return NextResponse.json({ error: 'Category ID is required' }, { status: 400 });
@@ -56,6 +57,9 @@ export async function PATCH(request, { params }) {
     if (sortOrder !== undefined) updateData.sortOrder = parseInt(sortOrder) || 0;
     if (maxPerTeam !== undefined) {
       updateData.maxPerTeam = (maxPerTeam === null || maxPerTeam === '' || parseInt(maxPerTeam) <= 0) ? null : parseInt(maxPerTeam);
+    }
+    if (minPerTeam !== undefined) {
+      updateData.minPerTeam = (minPerTeam === null || minPerTeam === '' || parseInt(minPerTeam) < 0) ? 0 : parseInt(minPerTeam);
     }
 
     const category = await prisma.category.update({

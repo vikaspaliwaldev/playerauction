@@ -29,7 +29,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
     hotkey: '',
     logo: '',
   });
-  const [catForm, setCatForm] = useState({ name: '', basePrice: 1000, maxPerTeam: '' });
+  const [catForm, setCatForm] = useState({ name: '', basePrice: 1000, maxPerTeam: '', minPerTeam: '' });
   const [playerForm, setPlayerForm] = useState({
     name: '',
     playerNumber: '',
@@ -286,7 +286,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
         body: JSON.stringify(catForm),
       });
       if (res.ok) {
-        setCatForm({ name: '', basePrice: 1000, maxPerTeam: '' });
+        setCatForm({ name: '', basePrice: 1000, maxPerTeam: '', minPerTeam: '' });
         notifySuccess(`Category "${catForm.name}" added successfully!`);
       } else {
         const d = await res.json();
@@ -313,6 +313,7 @@ export default function SetupPanel({ tournament, onComplete, onRefresh }) {
           categoryId: editingCategory.id,
           name: editingCategory.name,
           basePrice: editingCategory.basePrice,
+          minPerTeam: (editingCategory.minPerTeam === '' || editingCategory.minPerTeam === null || parseInt(editingCategory.minPerTeam) < 0) ? 0 : parseInt(editingCategory.minPerTeam),
           maxPerTeam: (editingCategory.maxPerTeam === '' || editingCategory.maxPerTeam === null || parseInt(editingCategory.maxPerTeam) <= 0) ? null : parseInt(editingCategory.maxPerTeam),
         }),
       });
@@ -1841,6 +1842,24 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
               />
               <input
                 type="number"
+                placeholder="Min Req/team (e.g. 2)"
+                value={catForm.minPerTeam}
+                onChange={e => setCatForm({ ...catForm, minPerTeam: e.target.value })}
+                min="0"
+                title="Minimum required players per team (enforces team minimum reserve balance in purse)"
+                style={{
+                  flex: 1,
+                  minWidth: 160,
+                  padding: '10px 14px',
+                  background: 'rgba(74, 222, 128, 0.08)',
+                  border: '1px solid rgba(74, 222, 128, 0.4)',
+                  borderRadius: 6,
+                  color: '#4ade80',
+                  fontWeight: 700,
+                }}
+              />
+              <input
+                type="number"
                 placeholder="Max/team (optional, e.g. 2)"
                 value={catForm.maxPerTeam}
                 onChange={e => setCatForm({ ...catForm, maxPerTeam: e.target.value })}
@@ -1881,6 +1900,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
                   {categories.map(c => {
                     const catPlayerCount = players.filter(p => p.categoryId === c.id).length;
+                    const minReq = c.minPerTeam || 0;
                     return (
                       <div
                         key={c.id}
@@ -1899,7 +1919,18 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                           <div style={{ fontSize: '0.85rem', color: 'var(--accent-gold)', marginTop: 2 }}>
                             Min Points: ₹{c.basePrice.toLocaleString()}
                           </div>
-                          <div style={{ fontSize: '0.78rem', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ fontSize: '0.78rem', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{
+                              background: minReq > 0 ? 'rgba(74, 222, 128, 0.15)' : 'var(--bg-tertiary)',
+                              border: `1px solid ${minReq > 0 ? '#4ade80' : 'var(--border-subtle)'}`,
+                              color: minReq > 0 ? '#4ade80' : 'var(--text-muted)',
+                              borderRadius: 4,
+                              padding: '1px 6px',
+                              fontWeight: 700,
+                              fontSize: '0.72rem',
+                            }}>
+                              {minReq > 0 ? `Min Req: ${minReq} (Res: ₹${(minReq * c.basePrice).toLocaleString()})` : 'Min Req: None'}
+                            </span>
                             <span style={{
                               background: c.maxPerTeam ? 'rgba(245, 184, 0, 0.15)' : 'var(--bg-tertiary)',
                               border: `1px solid ${c.maxPerTeam ? 'var(--accent-gold)' : 'var(--border-subtle)'}`,
@@ -1909,7 +1940,7 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                               fontWeight: 700,
                               fontSize: '0.72rem',
                             }}>
-                              {c.maxPerTeam ? `Max per Team: ${c.maxPerTeam}` : 'Quota: Unlimited'}
+                              {c.maxPerTeam ? `Max: ${c.maxPerTeam}` : 'Max: Unlimited'}
                             </span>
                           </div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 3 }}>
@@ -2049,6 +2080,32 @@ Kylian Mbappe, 9, Forward, Right Foot, 25`}
                           fontSize: '1.1rem',
                         }}
                       />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
+                        MIN REQUIRED PLAYERS PER TEAM (MANDATORY RESERVE PURSE)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 2 (enforces minimum purse reserve)"
+                        value={editingCategory.minPerTeam === null || editingCategory.minPerTeam === undefined ? 0 : editingCategory.minPerTeam}
+                        onChange={e => setEditingCategory({ ...editingCategory, minPerTeam: e.target.value === '' ? 0 : parseInt(e.target.value) || 0 })}
+                        min="0"
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          background: 'rgba(74, 222, 128, 0.1)',
+                          border: '1px solid #4ade80',
+                          borderRadius: 6,
+                          color: '#4ade80',
+                          fontWeight: 800,
+                          fontSize: '1rem',
+                        }}
+                      />
+                      <small style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: 4 }}>
+                        Every team must always maintain at least ({editingCategory.minPerTeam || 0} × ₹{editingCategory.basePrice || 0} = ₹{((editingCategory.minPerTeam || 0) * (editingCategory.basePrice || 0)).toLocaleString()}) reserve in purse for remaining slots.
+                      </small>
                     </div>
 
                     <div>
