@@ -55,7 +55,14 @@ export async function PUT(request, { params }) {
     const updateData = {};
     if (body.name !== undefined) updateData.name = body.name;
     if (body.logo !== undefined) updateData.logo = body.logo || null;
-    if (body.totalPurse !== undefined) updateData.totalPurse = parseInt(body.totalPurse) || 100000;
+    if (body.totalPurse !== undefined) {
+      const newTotalPurse = parseInt(body.totalPurse) || 100000;
+      updateData.totalPurse = newTotalPurse;
+      await prisma.team.updateMany({
+        where: { tournamentId: id },
+        data: { purse: newTotalPurse },
+      });
+    }
     if (body.minPlayers !== undefined) updateData.minPlayers = parseInt(body.minPlayers) || 7;
     if (body.maxPlayers !== undefined) updateData.maxPlayers = parseInt(body.maxPlayers) || 15;
     if (body.baseIncrement !== undefined) updateData.baseIncrement = parseInt(body.baseIncrement) || 100;

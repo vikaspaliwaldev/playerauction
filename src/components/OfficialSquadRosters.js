@@ -284,7 +284,7 @@ export default function OfficialSquadRosters({
                       ₹{(team.balance || 0).toLocaleString('en-IN')}
                     </div>
                     <div style={{ fontSize: '0.65rem', color: 'rgba(255, 255, 255, 0.75)', fontWeight: 600 }}>
-                      Initial: ₹{(team.purse || 0).toLocaleString('en-IN')}
+                      Initial: ₹{(team.purse ?? tournament?.totalPurse ?? 0).toLocaleString('en-IN')}
                     </div>
                   </div>
 
