@@ -216,6 +216,7 @@ export function calculateTeamStats(team, allTeams, tournament, currentPlayerCate
     return { balance: 0, playerCount: 0, totalSpent: 0, remainingSlots: 0, reservePoints: 0, maxBid: 0, categoryNeeds: [] };
   }
   const soldPlayers = team.sales || [];
+  const totalSpent = soldPlayers.reduce((sum, s) => sum + (s.soldPrice || 0), 0);
   const teamBudget = Number(team.purse ?? tournament?.totalPurse) || 0;
   const balance = teamBudget - totalSpent;
   const playerCount = soldPlayers.length;
