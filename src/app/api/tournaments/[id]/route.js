@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthUser } from '@/lib/utils';
+import { invalidateCache } from '@/lib/tournamentCache';
 
 export async function GET(request, { params }) {
   try {
@@ -80,6 +81,8 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Tournament not found' }, { status: 404 });
     }
 
+    invalidateCache(id);
+
     return NextResponse.json({ message: 'Tournament updated' });
   } catch (error) {
     console.error('Update tournament error:', error);
@@ -99,6 +102,8 @@ export async function DELETE(request, { params }) {
     await prisma.tournament.deleteMany({
       where: { id, userId: user.id },
     });
+
+    invalidateCache(id);
 
     return NextResponse.json({ message: 'Tournament deleted' });
   } catch (error) {

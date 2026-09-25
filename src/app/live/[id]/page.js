@@ -33,8 +33,8 @@ function LiveSpectatorContent() {
 
   useEffect(() => {
     fetchLiveState();
-    // Fast 1.2s polling for real-time live bidding sync
-    const interval = setInterval(fetchLiveState, 1200);
+    // 2.5s polling — balanced for live bidding responsiveness vs DB/egress pressure
+    const interval = setInterval(fetchLiveState, 2500);
     return () => clearInterval(interval);
   }, [fetchLiveState]);
 

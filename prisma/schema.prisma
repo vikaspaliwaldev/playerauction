@@ -115,6 +115,7 @@ model Player {
   @@index([tournamentId])
   @@index([categoryId])
   @@index([status])
+  @@index([tournamentId, status])
 }
 
 model Bid {
@@ -140,6 +141,7 @@ model Sale {
   createdAt DateTime @default(now())
 
   @@index([teamId])
+  @@index([teamId, soldPrice])
 }
 
 model Sponsor {

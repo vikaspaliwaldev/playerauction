@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthUser } from '@/lib/utils';
+import { invalidateCache } from '@/lib/tournamentCache';
 
 // GET auction state
 export async function GET(request, { params }) {
@@ -50,6 +51,8 @@ export async function PUT(request, { params }) {
       update: body,
       create: { tournamentId: id, ...body },
     });
+
+    invalidateCache(id);
 
     return NextResponse.json({ state });
   } catch (error) {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthUser } from '@/lib/utils';
 import { calculateTeamReserve } from '@/lib/auctionRules';
+import { invalidateCache } from '@/lib/tournamentCache';
 
 // POST - Sell a player to a team
 export async function POST(request, { params }) {
@@ -84,6 +85,8 @@ export async function POST(request, { params }) {
         data: { currentPlayerId: null, currentBid: 0, currentTeamId: null },
       }),
     ]);
+
+    invalidateCache(id);
 
     return NextResponse.json({ sale, message: 'Player sold successfully' });
   } catch (error) {

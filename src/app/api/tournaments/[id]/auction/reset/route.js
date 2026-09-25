@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthUser } from '@/lib/utils';
+import { invalidateCache } from '@/lib/tournamentCache';
 
 // POST - Reset auction (clear all sales, bids, reset player statuses)
 export async function POST(request, { params }) {
@@ -18,6 +19,8 @@ export async function POST(request, { params }) {
         where: { tournamentId: id, status: 'unsold' },
         data: { status: 'available' },
       });
+
+      invalidateCache(id);
 
       return NextResponse.json({ message: 'Unsold players moved back to available pool' });
     }
@@ -44,6 +47,8 @@ export async function POST(request, { params }) {
         },
       }),
     ]);
+
+    invalidateCache(id);
 
     return NextResponse.json({ message: 'Auction reset successfully' });
   } catch (error) {

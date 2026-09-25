@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthUser } from '@/lib/utils';
+import { invalidateCache } from '@/lib/tournamentCache';
 
 // POST - Re-auction a sold/unsold player (make available again)
 export async function POST(request, { params }) {
@@ -34,6 +35,8 @@ export async function POST(request, { params }) {
         currentTeamId: null,
       },
     });
+
+    invalidateCache(id);
 
     return NextResponse.json({ player, message: 'Player available for re-auction' });
   } catch (error) {

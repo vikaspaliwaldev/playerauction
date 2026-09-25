@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthUser } from '@/lib/utils';
+import { invalidateCache } from '@/lib/tournamentCache';
 
 // POST - Mark player as unsold
 export async function POST(request, { params }) {
@@ -26,6 +27,8 @@ export async function POST(request, { params }) {
         data: { currentPlayerId: null, currentBid: 0, currentTeamId: null },
       }),
     ]);
+
+    invalidateCache(id);
 
     return NextResponse.json({ message: 'Player marked as unsold' });
   } catch (error) {
