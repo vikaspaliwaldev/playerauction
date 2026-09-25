@@ -5,7 +5,7 @@
 
 const { PrismaClient: AivenPrisma } = require('@prisma/client');
 
-const AIVEN_URL = "postgresql://avnadmin:AVNS_xiBjAM13dLSrFMAct43@pg-21ca6f58-vpaliwal18-6613.h.aivencloud.com:24472/defaultdb?sslmode=require";
+const AIVEN_URL = process.env.AIVEN_DATABASE_URL || process.env.DATABASE_URL;
 
 async function main() {
   const supabaseUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
